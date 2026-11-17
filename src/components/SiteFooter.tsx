@@ -3,123 +3,608 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import Matter from "matter-js";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { playOnce, SOUNDS } from "@/lib/sounds";
+import { initPoke } from "@/lib/initPoke";
+
+const PHYSICS = {
+  STAGE: 4,
+  STAGGER: 0.26,
+  SPEED: 55,
+  DROP: 6,
+  PERSIST: 90,
+  SPIN: 5,
+  TOP: 9,
+  SPAN: 9,
+};
+
+const SOUND_CONFIG = {
+  MIN: 10,
+  FULL: 70,
+  VOLUME: 0.5,
+  GAP: 90,
+};
+
+const REVEAL_CONFIG = {
+  HIDDEN: 130,
+  DURATION: 0.6,
+  STAGGER: 0.025,
+  EASE: "power3.out",
+};
+
+function shuffle<T>(arr: T[]): T[] {
+  const result = [...arr];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
 
 export default function SiteFooter() {
   const footerRef = useRef<HTMLElement | null>(null);
-  const canvasRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    gsap.registerPlugin(ScrollTrigger);
 
     const footer = footerRef.current;
     if (!footer) return;
 
-    const ballsContainer = footer.querySelector<HTMLElement>(".footer-balls");
-    if (!ballsContainer) return;
+    const cleanupFns: (() => void)[] = [];
 
-    const ballElements = Array.from(
-      ballsContainer.querySelectorAll<HTMLElement>(".footer-ball")
-    );
+    // 1. Entrance Reveal Animation
+    const linkChars = Array.from(footer.querySelectorAll<HTMLElement>(".footer-link .char"));
+    const linkDots = Array.from(footer.querySelectorAll<HTMLElement>(".footer-link-dot"));
+    const headlineChars = Array.from(footer.querySelectorAll<HTMLElement>(".footer-headline .char"));
 
-    // Matter.js Engine setup
-    const { Engine, World, Bodies, Body, Events, Mouse, MouseConstraint } = Matter;
-    const engine = Engine.create({
-      gravity: { x: 0, y: 1.2 },
-    });
+    if (linkChars.length || headlineChars.length) {
+      gsap.set([...linkChars, ...headlineChars], { y: 0 });
 
-    const w = ballsContainer.clientWidth || window.innerWidth;
-    const h = ballsContainer.clientHeight || 400;
+      const revealTl = gsap.timeline({ paused: true });
 
-    // Boundaries
-    const thickness = 60;
-    const ground = Bodies.rectangle(w / 2, h + thickness / 2 - 10, w * 2, thickness, {
-      isStatic: true,
-      friction: 0.2,
-      restitution: 0.4,
-    });
-    const leftWall = Bodies.rectangle(-thickness / 2, h / 2, thickness, h * 2, {
-      isStatic: true,
-    });
-    const rightWall = Bodies.rectangle(w + thickness / 2, h / 2, thickness, h * 2, {
-      isStatic: true,
-    });
+      if (linkChars.length) {
+        revealTl.fromTo(
+          shuffle(linkChars),
+          { yPercent: REVEAL_CONFIG.HIDDEN, y: 0 },
+          {
+            yPercent: 0,
+            y: 0,
+            duration: REVEAL_CONFIG.DURATION,
+            stagger: 0.014,
+            ease: REVEAL_CONFIG.EASE,
+          },
+          0
+        );
+      }
 
-    World.add(engine.world, [ground, leftWall, rightWall]);
+      if (linkDots.length) {
+        revealTl.fromTo(
+          linkDots,
+          { scale: 0 },
+          {
+            scale: 1,
+            duration: 0.5,
+            stagger: 0.05,
+            ease: "back.out(2.2)",
+          },
+          0.3
+        );
+      }
 
-    // Create rigid bodies for each ball
-    const bodies = ballElements.map((el, i) => {
-      const radius = el.offsetWidth / 2 || 50;
-      const initialX = (parseFloat(el.style.getPropertyValue("--ball-x") || "50") / 100) * w;
-      const initialY = -100 - i * 80;
+      if (headlineChars.length) {
+        revealTl.fromTo(
+          shuffle(headlineChars),
+          { yPercent: REVEAL_CONFIG.HIDDEN, y: 0 },
+          {
+            yPercent: 0,
+            y: 0,
+            duration: REVEAL_CONFIG.DURATION,
+            stagger: REVEAL_CONFIG.STAGGER,
+            ease: REVEAL_CONFIG.EASE,
+          },
+          0.24
+        );
+      }
 
-      const body = Bodies.circle(initialX, initialY, radius, {
-        restitution: 0.45,
-        friction: 0.15,
-        frictionAir: 0.005,
-        density: 0.002,
+      const st = ScrollTrigger.create({
+        trigger: footer,
+        start: "top 80%",
+        once: true,
+        onEnter: () => {
+          footer.dataset.reveal = "live";
+          revealTl.play();
+        },
       });
 
-      World.add(engine.world, body);
-      return { el, body, radius };
-    });
+      cleanupFns.push(() => {
+        st.kill();
+        revealTl.kill();
+        gsap.set([...linkChars, ...headlineChars], { clearProps: "transform" });
+        if (linkDots.length) gsap.set(linkDots, { clearProps: "transform" });
+      });
+    }
 
-    // Sound on impact
-    Events.on(engine, "collisionStart", (event) => {
-      let maxSpeed = 0;
-      for (const pair of event.pairs) {
-        const speedA = Body.getSpeed(pair.bodyA);
-        const speedB = Body.getSpeed(pair.bodyB);
-        maxSpeed = Math.max(maxSpeed, speedA, speedB);
-      }
-      if (maxSpeed > 2) {
-        const vol = Math.min((maxSpeed - 2) / 8, 1) * 0.5;
-        playOnce(SOUNDS.BALL_HIT, vol);
-      }
-    });
+    // 2. Interactive Poke on Footer Headline
+    const pokeCleanup = initPoke(footer, ".footer-headline");
+    cleanupFns.push(pokeCleanup);
 
-    // Pointer drag interaction
-    const mouse = Mouse.create(ballsContainer);
-    const mouseConstraint = MouseConstraint.create(engine, {
-      mouse,
-      constraint: {
-        stiffness: 0.2,
-        render: { visible: false },
-      },
-    });
-    World.add(engine.world, mouseConstraint);
+    // 3. Matter.js Interactive Physics Simulation
+    const footerBottom = footer.querySelector<HTMLElement>(".footer-bottom");
+    const ballElements = Array.from(footer.querySelectorAll<HTMLElement>(".footer-ball"));
 
-    let isVisible = false;
-    let animId: number;
+    if (
+      footerBottom &&
+      ballElements.length &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      const {
+        Bodies,
+        Body,
+        Composite,
+        Constraint,
+        Engine,
+        Events,
+        Sleeping,
+        Vector,
+      } = Matter;
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        isVisible = entry.isIntersecting;
-      },
-      { threshold: 0.1 }
-    );
-    observer.observe(footer);
+      type BallData = {
+        el: HTMLElement;
+        body: Matter.Body;
+        home: { x: number; y: number };
+        side: number;
+        releaseAt: number;
+        released: boolean;
+        armed: boolean;
+      };
 
-    const update = () => {
-      animId = requestAnimationFrame(update);
-      if (isVisible) {
-        Engine.update(engine, 1000 / 60);
+      type SimulationState = {
+        engine: Matter.Engine;
+        w: number;
+        h: number;
+        sx: number;
+        balls: BallData[];
+        elapsed: number;
+      };
 
-        bodies.forEach(({ el, body, radius }) => {
-          const x = body.position.x - radius;
-          const y = body.position.y - radius;
-          el.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${body.angle}rad)`;
+      let state: SimulationState | null = null;
+      let lastSoundTime = -Infinity;
+      let ballScale = 1;
+
+      // Mouse tracking
+      let mouseX = 0;
+      let mouseY = 0;
+      let deltaX = 0;
+      let deltaY = 0;
+      let isInside = false;
+      let activeConstraint: Matter.Constraint | null = null;
+      let activeBody: Matter.Body | null = null;
+      let dragStartX = 0;
+      let dragStartY = 0;
+      let isDraggedFar = false;
+      let isFooterVisible = false;
+
+      const R = (vw: number) => (vw * window.innerWidth) / 100;
+
+      const initPhysics = (initialState?: { fx: number; fy: number; vx: number; vy: number; spin: number }[]) => {
+        const w = footerBottom.clientWidth;
+        const h = footerBottom.clientHeight;
+        if (!w || !h) return;
+
+        const engine = Engine.create({ enableSleeping: true });
+        ballScale =
+          parseFloat(getComputedStyle(ballElements[0]).getPropertyValue("--ball-scale")) || 1;
+        engine.gravity.y = 1;
+        engine.gravity.scale = (60 * ballScale * R(1)) / 1e6;
+
+        // Collision sound handler
+        Events.on(engine, "collisionStart", ({ pairs }) => {
+          let maxImpact = 0;
+          for (const { bodyA, bodyB, collision } of pairs) {
+            const normal = collision.normal;
+            const impact =
+              (60 *
+                Math.abs(
+                  (bodyA.velocity.x - bodyB.velocity.x) * normal.x +
+                    (bodyA.velocity.y - bodyB.velocity.y) * normal.y
+                )) /
+              R(1);
+            maxImpact = Math.max(maxImpact, impact);
+          }
+          const now = performance.now();
+          if (maxImpact > SOUND_CONFIG.MIN && now - lastSoundTime >= SOUND_CONFIG.GAP) {
+            lastSoundTime = now;
+            const volume =
+              Math.min((maxImpact - SOUND_CONFIG.MIN) / (SOUND_CONFIG.FULL - SOUND_CONFIG.MIN), 1) *
+              SOUND_CONFIG.VOLUME;
+            playOnce(SOUNDS.BALL_HIT, volume);
+          }
         });
-      }
-    };
 
-    animId = requestAnimationFrame(update);
+        const groundY = h - R(3.2);
+
+        // Calculate homes and sides
+        const ballMetrics = ballElements.map((el) => {
+          const r = el.offsetWidth / 2;
+          return {
+            r,
+            home: Vector.create(el.offsetLeft + r, el.offsetTop + r),
+          };
+        });
+
+        const sides = ballMetrics.map((m) => (m.home.x < w / 2 ? -1 : 1));
+        const leftIndices = sides.map((s, i) => (s < 0 ? i : -1)).filter((i) => i >= 0);
+        const rightIndices = sides.map((s, i) => (s > 0 ? i : -1)).filter((i) => i >= 0);
+
+        const staggerOrder = new Map<number, number>();
+        const maxLen = Math.max(leftIndices.length, rightIndices.length);
+        for (let i = 0; i < maxLen; i++) {
+          if (i < leftIndices.length) staggerOrder.set(leftIndices[i], staggerOrder.size);
+          if (i < rightIndices.length) staggerOrder.set(rightIndices[i], staggerOrder.size);
+        }
+
+        let maxSpawnDist = 0;
+        const balls: BallData[] = ballElements.map((el, n) => {
+          const { r, home } = ballMetrics[n];
+          const side = sides[n];
+          const staggerIndex = staggerOrder.get(n) ?? 0;
+          const spawnDist = R(PHYSICS.STAGE) + r;
+          maxSpawnDist = Math.max(maxSpawnDist, spawnDist + r);
+
+          const count = Math.max(ballElements.length - 1, 1);
+          const topY = Math.min(
+            Math.max(R(PHYSICS.TOP) + (1 - staggerIndex / count) * R(PHYSICS.SPAN), r + R(0.5)),
+            groundY - r
+          );
+
+          const saved = initialState?.[n];
+          const initialX = saved ? saved.fx * w : side < 0 ? -spawnDist : w + spawnDist;
+          const initialY = saved ? saved.fy * h : topY;
+
+          const body = Bodies.circle(initialX, initialY, r, {
+            restitution: 0.32,
+            friction: 0.16,
+            frictionAir: 0.004,
+            density: 0.001,
+            collisionFilter: {
+              category: 1,
+              mask: saved ? -1 : -3,
+              group: 0,
+            },
+          });
+
+          if (saved) {
+            Body.setVelocity(body, { x: saved.vx, y: saved.vy });
+            Body.setAngularVelocity(body, saved.spin);
+          }
+
+          return {
+            el,
+            body,
+            home,
+            side,
+            releaseAt: saved ? 0 : staggerIndex * PHYSICS.STAGGER,
+            released: !!saved,
+            armed: !!saved,
+          };
+        });
+
+        // World boundaries
+        const wallThickness = R(20);
+        const sideMargin = R(2);
+        const worldWidth = w + 2 * (maxSpawnDist + wallThickness);
+
+        const createWall = (
+          x: number,
+          y: number,
+          width: number,
+          height: number,
+          options: { friction?: number; category?: number } = {}
+        ) =>
+          Bodies.rectangle(x, y, width, height, {
+            isStatic: true,
+            friction: options.friction ?? 0,
+            restitution: 0.32,
+            collisionFilter: {
+              category: options.category ?? 1,
+              mask: -1,
+              group: 0,
+            },
+          });
+
+        Composite.add(engine.world, [
+          createWall(w / 2, -wallThickness / 2, worldWidth, wallThickness),
+          createWall(w / 2, groundY + wallThickness / 2, worldWidth, wallThickness, {
+            friction: 0.16,
+          }),
+          createWall(-sideMargin - wallThickness / 2, h / 2, wallThickness, h + 2 * wallThickness, {
+            category: 2,
+          }),
+          createWall(
+            w + sideMargin + wallThickness / 2,
+            h / 2,
+            wallThickness,
+            h + 2 * wallThickness,
+            { category: 2 }
+          ),
+          ...balls.filter((b) => b.released).map((b) => b.body),
+        ]);
+
+        state = {
+          engine,
+          w,
+          h,
+          sx: sideMargin,
+          balls,
+          elapsed: 0,
+        };
+
+        renderTransforms(state);
+      };
+
+      const renderTransforms = (currState: SimulationState) => {
+        for (const { el, body, home } of currState.balls) {
+          const dx = body.position.x - home.x;
+          const dy = body.position.y - home.y;
+          el.style.transform = `translate3d(${dx.toFixed(2)}px, ${dy.toFixed(2)}px, 0) rotate(${body.angle.toFixed(4)}rad)`;
+        }
+      };
+
+      const updatePointerCoords = (e: PointerEvent) => {
+        const rect = footerBottom.getBoundingClientRect();
+        const curX = e.clientX - rect.left;
+        const curY = e.clientY - rect.top;
+        deltaX = curX - mouseX;
+        deltaY = curY - mouseY;
+        mouseX = curX;
+        mouseY = curY;
+
+        const pad = R(2) + R(5);
+        isInside =
+          curX > -pad && curY > -pad && curX < rect.width + pad && curY < rect.height + pad;
+      };
+
+      const releaseConstraint = () => {
+        if (activeConstraint && state) {
+          Composite.remove(state.engine.world, activeConstraint);
+        }
+        activeConstraint = null;
+        activeBody = null;
+      };
+
+      // Main physics step loop
+      const onTick = (_time: number, deltaTime: number) => {
+        const curr = state;
+        if (!curr || !isFooterVisible) return;
+
+        const dt = Math.min(deltaTime, 20);
+        curr.elapsed += dt / 1000;
+
+        // 1. Release balls whose time has arrived
+        for (const b of curr.balls) {
+          if (!b.released && curr.elapsed >= b.releaseAt) {
+            b.released = true;
+            Body.setVelocity(b.body, {
+              x: (-b.side * R(PHYSICS.SPEED)) / 60,
+              y: R(PHYSICS.DROP) / 60,
+            });
+            Body.setAngularVelocity(b.body, (-b.side * PHYSICS.SPIN) / 60);
+            Composite.add(curr.engine.world, b.body);
+          }
+        }
+
+        // 2. Cursor momentum impulse
+        if (isInside) {
+          const moveDist = Math.min(Math.hypot(deltaX, deltaY), 60);
+          if (moveDist >= 0.5) {
+            const influenceRadius = R(5);
+            const speedRatio = moveDist / 60;
+            const ballRadius = R(18) / 2;
+            const areaScale = ((Math.PI * ballRadius * ballRadius * 0.001 * R(1)) / 1e6);
+            const forceMain = 200 * areaScale;
+            const forceVel = 70 * areaScale;
+
+            for (const { body } of curr.balls) {
+              if (body === activeBody) continue;
+              const r = body.circleRadius ?? 0;
+              const dx = body.position.x - mouseX;
+              const dy = body.position.y - mouseY;
+              const dist = Math.hypot(dx, dy) || 1e-4;
+              const clearance = dist - r;
+
+              if (clearance <= influenceRadius) {
+                const factor = Math.min(1 - clearance / influenceRadius, 1);
+                const nx = dx / dist;
+                const ny = dy / dist;
+                const contactPoint = {
+                  x: body.position.x - nx * r,
+                  y: body.position.y - ny * r,
+                };
+                const fRadial = forceMain * factor * speedRatio;
+                const fMotion = forceVel * factor;
+
+                if (body.isSleeping) Sleeping.set(body, false);
+                Body.applyForce(body, contactPoint, {
+                  x: nx * fRadial + (deltaX / moveDist) * fMotion,
+                  y: ny * fRadial + (deltaY / moveDist) * fMotion,
+                });
+              }
+            }
+          }
+        }
+
+        // 3. Update Matter Engine
+        Engine.update(curr.engine, dt);
+
+        // 4. Velocity clamping
+        const maxVelocity = (R(85) * ballScale) / 60;
+        for (const { body } of curr.balls) {
+          const vel = body.velocity;
+          const currentSpeed = Math.hypot(vel.x, vel.y);
+          if (currentSpeed > maxVelocity) {
+            const ratio = maxVelocity / currentSpeed;
+            Body.setVelocity(body, { x: vel.x * ratio, y: vel.y * ratio });
+          }
+        }
+
+        // 5. Inward persistence force until armed
+        const persistMagnitude = (R(PHYSICS.PERSIST) * R(1)) / 1e6;
+        for (const b of curr.balls) {
+          if (b.armed || !b.released) continue;
+          const r = b.body.circleRadius ?? 0;
+          const px = b.body.position.x;
+          if (px >= -curr.sx + r && px <= curr.w + curr.sx - r) {
+            b.armed = true;
+            b.body.collisionFilter.mask = -1;
+            continue;
+          }
+          if (b.body.isSleeping) Sleeping.set(b.body, false);
+          Body.applyForce(b.body, b.body.position, {
+            x: -b.side * persistMagnitude * b.body.mass,
+            y: 0,
+          });
+        }
+
+        if (activeBody) {
+          Body.setAngularVelocity(activeBody, 0.9 * activeBody.angularVelocity);
+        }
+
+        deltaX = 0;
+        deltaY = 0;
+        renderTransforms(curr);
+      };
+
+      // Intersection Observer to run physics only when footer is near viewport
+      const io = new IntersectionObserver(
+        ([entry]) => {
+          isFooterVisible = entry.isIntersecting;
+        },
+        { threshold: 0.1 }
+      );
+      io.observe(footer);
+
+      // Pointer event listeners
+      const onPointerMove = (e: PointerEvent) => {
+        if (isFooterVisible || activeConstraint) {
+          updatePointerCoords(e);
+          if (activeConstraint) {
+            if (Math.hypot(mouseX - dragStartX, mouseY - dragStartY) > 6) {
+              isDraggedFar = true;
+            }
+            activeConstraint.pointA = { x: mouseX, y: mouseY };
+          }
+        }
+      };
+
+      const onPointerDown = (e: PointerEvent) => {
+        if (e.button !== 0 || !state) return;
+        updatePointerCoords(e);
+
+        const targetBall = state.balls.find(({ body }) => {
+          const r = body.circleRadius ?? 0;
+          return Math.hypot(body.position.x - mouseX, body.position.y - mouseY) <= r;
+        });
+
+        if (!targetBall) return;
+        activeBody = targetBall.body;
+        dragStartX = mouseX;
+        dragStartY = mouseY;
+        isDraggedFar = false;
+        Sleeping.set(targetBall.body, false);
+
+        const localOffset = Vector.mult(
+          Vector.rotate(
+            Vector.sub({ x: mouseX, y: mouseY }, targetBall.body.position),
+            -targetBall.body.angle
+          ),
+          0.34
+        );
+
+        activeConstraint = Constraint.create({
+          pointA: { x: mouseX, y: mouseY },
+          bodyB: targetBall.body,
+          pointB: localOffset,
+          length: 0,
+          stiffness: 0.06,
+          damping: 0.08,
+        });
+
+        Composite.add(state.engine.world, activeConstraint);
+        e.preventDefault();
+      };
+
+      const onClick = (e: MouseEvent) => {
+        if (isDraggedFar) {
+          e.preventDefault();
+          e.stopPropagation();
+          isDraggedFar = false;
+        }
+      };
+
+      window.addEventListener("pointermove", onPointerMove, { passive: true });
+      window.addEventListener("pointerdown", onPointerDown);
+      window.addEventListener("pointerup", releaseConstraint, { passive: true });
+      window.addEventListener("pointercancel", releaseConstraint, { passive: true });
+      footerBottom.addEventListener("click", onClick, { capture: true });
+
+      // Resize handler
+      let resizeTimer = 0;
+      const onResize = () => {
+        window.clearTimeout(resizeTimer);
+        const snapshot = state
+          ? state.balls.map(({ body }) => {
+              const r = body.circleRadius ?? 0;
+              return {
+                fx: Math.min(Math.max(body.position.x, r), state!.w - r) / state!.w,
+                fy: body.position.y / state!.h,
+                vx: body.velocity.x,
+                vy: body.velocity.y,
+                spin: body.angularVelocity,
+              };
+            })
+          : undefined;
+
+        resizeTimer = window.setTimeout(() => {
+          releaseConstraint();
+          if (state) {
+            Composite.clear(state.engine.world, false);
+            Engine.clear(state.engine);
+            state = null;
+          }
+          initPhysics(snapshot);
+        }, 180);
+      };
+
+      window.addEventListener("resize", onResize, { passive: true });
+
+      initPhysics();
+      gsap.ticker.add(onTick);
+
+      cleanupFns.push(() => {
+        window.clearTimeout(resizeTimer);
+        window.removeEventListener("resize", onResize);
+        window.removeEventListener("pointermove", onPointerMove);
+        window.removeEventListener("pointerdown", onPointerDown);
+        window.removeEventListener("pointerup", releaseConstraint);
+        window.removeEventListener("pointercancel", releaseConstraint);
+        footerBottom.removeEventListener("click", onClick, { capture: true });
+        io.disconnect();
+        gsap.ticker.remove(onTick);
+        if (state) {
+          Composite.clear(state.engine.world, false);
+          Engine.clear(state.engine);
+          state = null;
+        }
+        for (const el of ballElements) {
+          el.style.transform = "";
+        }
+      });
+    }
 
     return () => {
-      cancelAnimationFrame(animId);
-      observer.disconnect();
-      World.clear(engine.world, false);
-      Engine.clear(engine);
+      cleanupFns.forEach((fn) => fn());
     };
   }, []);
 
@@ -228,8 +713,8 @@ export default function SiteFooter() {
           </span>
         </h2>
 
-        {/* Physics interactive bouncy tape rolls */}
-        <div ref={canvasRef} className="footer-balls">
+        {/* Physics interactive bouncy tape rolls & social discs */}
+        <div className="footer-balls">
           <div
             className="footer-ball"
             style={{ "--ball-d": 18.7, "--ball-x": 9.6, "--ball-y": 18.7 } as React.CSSProperties}
