@@ -10,82 +10,144 @@ export default function WaveBand() {
     const section = sectionRef.current;
     if (!section) return;
 
+    const headText = section.dataset.head ?? "WHEN LIFE GETS MESSY,";
+    const tailText = section.dataset.tail ?? "SOMETHING HAS TO HOLD";
+    const gapSpaces = "\u00A0".repeat(6);
+    const unitText = headText + gapSpaces + tailText + "\u00A0\u00A0\u00A0";
+    const slotAt = headText.length;
+    const slotLen = gapSpaces.length;
+
+    const textEl = section.querySelector<SVGTextElement>("text");
     const textPath = section.querySelector<SVGTextPathElement>("textPath");
     const path = section.querySelector<SVGPathElement>("#wave-band-path");
     const badges = Array.from(section.querySelectorAll<SVGImageElement>(".band-badge"));
-    const textEl = section.querySelector<SVGTextElement>("text");
 
-    if (!textPath || !path || !textEl) return;
+    if (!textEl || !textPath || !path) return;
 
-    const totalLen = path.getTotalLength();
-    const subLen = 1400; // repeat unit length estimate
-    let startVal = 3295;
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let tween: gsap.core.Tween | null = null;
+    let tickerFn: (() => void) | null = null;
+    let io: IntersectionObserver | null = null;
+    let isDisposed = false;
+    let isIntersecting = true;
 
-    const updateBadges = (offset: number) => {
+    function positionBadges(startOffset: number, unitLen: number, badgeCenterOffset: number) {
+      if (!path) return;
+      const totalLen = path.getTotalLength();
       badges.forEach((badge, idx) => {
-        const dist = (offset + idx * 800) % totalLen;
-        const validDist = dist < 0 ? dist + totalLen : dist;
-        const pt = path.getPointAtLength(validDist);
-        const ptBefore = path.getPointAtLength(Math.max(validDist - 6, 0));
-        const ptAfter = path.getPointAtLength(Math.min(validDist + 6, totalLen));
+        const dist = startOffset + idx * unitLen + badgeCenterOffset;
+        if (dist < 0 || dist > totalLen) {
+          badge.style.visibility = "hidden";
+          return;
+        }
+        const pt = path.getPointAtLength(dist);
+        const ptBefore = path.getPointAtLength(Math.max(dist - 8, 0));
+        const ptAfter = path.getPointAtLength(Math.min(dist + 8, totalLen));
         const angle = (180 * Math.atan2(ptAfter.y - ptBefore.y, ptAfter.x - ptBefore.x)) / Math.PI;
 
         badge.setAttribute("transform", `translate(${pt.x} ${pt.y}) rotate(${angle})`);
         badge.style.visibility = "visible";
       });
-    };
+    }
 
-    updateBadges(startVal);
+    document.fonts.ready.then(() => {
+      if (isDisposed) return;
 
-    // Continuous marquee tween
-    const tween = gsap.fromTo(
-      textPath,
-      { attr: { startOffset: startVal } },
-      {
-        attr: { startOffset: startVal - subLen },
-        duration: 18,
-        ease: "none",
-        repeat: -1,
-        onUpdate: () => {
-          const currentOffset = parseFloat(textPath.getAttribute("startOffset") || "0");
-          updateBadges(currentOffset);
-        },
+      let unitLen = 1400;
+      try {
+        unitLen = textEl.getSubStringLength(0, unitText.length);
+      } catch {
+        unitLen = 1400;
       }
-    );
 
-    // Scroll acceleration
-    let lastY = window.scrollY;
-    let targetTimeScale = 1;
-    let curTimeScale = 1;
+      // Calculate path entrance start offset
+      let initialStartOffset = 40;
+      if (path) {
+        let left = 0;
+        let right = path.getTotalLength();
+        for (let i = 0; i < 40; i++) {
+          const mid = (left + right) / 2;
+          if (path.getPointAtLength(mid).x < 0) {
+            left = mid;
+          } else {
+            right = mid;
+          }
+        }
+        initialStartOffset = (left + right) / 2 + 40;
+      }
 
-    const onScroll = () => {
-      const curY = window.scrollY;
-      const dy = Math.abs(curY - lastY);
-      lastY = curY;
-      targetTimeScale = 1 + Math.min(dy * 0.05, 4);
-    };
+      let badgeCenterOffset = 450;
+      try {
+        badgeCenterOffset =
+          textEl.getSubStringLength(0, slotAt) + textEl.getSubStringLength(slotAt, slotLen) / 2;
+      } catch {
+        badgeCenterOffset = 450;
+      }
 
-    window.addEventListener("scroll", onScroll, { passive: true });
+      if (prefersReducedMotion) {
+        textPath.setAttribute("startOffset", String(initialStartOffset));
+        positionBadges(initialStartOffset, unitLen, badgeCenterOffset);
+        return;
+      }
 
-    const ticker = () => {
-      curTimeScale += (targetTimeScale - curTimeScale) * 0.05;
-      targetTimeScale += (1 - targetTimeScale) * 0.05;
-      tween.timeScale(curTimeScale);
-    };
+      tween = gsap.fromTo(
+        textPath,
+        { attr: { startOffset: initialStartOffset } },
+        {
+          attr: { startOffset: initialStartOffset - unitLen },
+          duration: unitLen / 120,
+          ease: "none",
+          repeat: -1,
+          paused: true,
+          onUpdate() {
+            const currentVal = parseFloat(textPath.getAttribute("startOffset") || "0");
+            positionBadges(currentVal, unitLen, badgeCenterOffset);
+          },
+        }
+      );
 
-    gsap.ticker.add(ticker);
+      positionBadges(initialStartOffset, unitLen, badgeCenterOffset);
+
+      let lastScrollY = window.scrollY;
+      let currentScale = 0.9;
+      tween.timeScale(currentScale);
+      const clampSpeed = gsap.utils.clamp(-4, 5);
+
+      tickerFn = () => {
+        const curY = window.scrollY;
+        const delta = curY - lastScrollY;
+        lastScrollY = curY;
+        if (!isIntersecting) return;
+
+        const targetSpeed = clampSpeed(0.9 + 0.5 * delta);
+        const lerpFactor = Math.abs(targetSpeed - 0.9) > Math.abs(currentScale - 0.9) ? 0.12 : 0.03;
+        currentScale += (targetSpeed - currentScale) * lerpFactor;
+        tween?.timeScale(currentScale);
+      };
+
+      gsap.ticker.add(tickerFn);
+
+      io = new IntersectionObserver(
+        ([entry]) => {
+          isIntersecting = entry.isIntersecting;
+          tween?.paused(!isIntersecting);
+        },
+        { rootMargin: "600px 0px" }
+      );
+      io.observe(section);
+    });
 
     return () => {
-      window.removeEventListener("scroll", onScroll);
-      gsap.ticker.remove(ticker);
-      tween.kill();
+      isDisposed = true;
+      if (tickerFn) gsap.ticker.remove(tickerFn);
+      tween?.kill();
+      io?.disconnect();
     };
   }, []);
 
   const repeatCount = 6;
-  const repeatedText = Array(repeatCount)
-    .fill("WHEN LIFE GETS MESSY,\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0SOMETHING HAS TO HOLD\u00A0\u00A0\u00A0")
-    .join("");
+  const singleUnit = "WHEN LIFE GETS MESSY,\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0SOMETHING HAS TO HOLD\u00A0\u00A0\u00A0";
+  const repeatedText = Array(repeatCount).fill(singleUnit).join("");
 
   return (
     <section
@@ -134,6 +196,7 @@ export default function WaveBand() {
             y="-75"
             width="150"
             height="150"
+            style={{ visibility: "hidden" }}
           />
         ))}
 
