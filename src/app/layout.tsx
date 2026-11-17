@@ -54,6 +54,18 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="stylesheet" href="https://use.typekit.net/wyl5nhy.css" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if (!window.location.hash) {
+                if ('scrollRestoration' in history) {
+                  history.scrollRestoration = 'manual';
+                }
+                window.scrollTo(0, 0);
+              }
+            `,
+          }}
+        />
       </head>
       <body>
         <SvgFilters />

@@ -19,6 +19,13 @@ export default function Preloader({ onComplete }: PreloaderProps) {
     // Set loading attribute on document
     document.documentElement.dataset.loading = "";
 
+    if (!window.location.hash) {
+      if ("scrollRestoration" in history) {
+        history.scrollRestoration = "manual";
+      }
+      window.scrollTo(0, 0);
+    }
+
     const markEl = el.querySelector<HTMLElement>(".preloader-mark");
     const stickerImg = markEl?.dataset.sticker || "/assets/preloader-image.svg";
 

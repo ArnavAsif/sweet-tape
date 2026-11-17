@@ -22,6 +22,21 @@ export default function SmoothScroll({ children }: { children: ReactNode }) {
 
     lenis.on("scroll", ScrollTrigger.update);
 
+    if (!window.location.hash) {
+      if ("scrollRestoration" in history) {
+        history.scrollRestoration = "manual";
+      }
+      window.scrollTo(0, 0);
+      lenis.scrollTo(0, { immediate: true, force: true });
+    }
+
+    const onBeforeUnload = () => {
+      if (!window.location.hash) {
+        window.scrollTo(0, 0);
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+
     const updateLenis = (time: number) => {
       lenis.raf(time * 1000);
     };
@@ -30,6 +45,7 @@ export default function SmoothScroll({ children }: { children: ReactNode }) {
     gsap.ticker.lagSmoothing(0);
 
     return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
       lenis.destroy();
       gsap.ticker.remove(updateLenis);
     };

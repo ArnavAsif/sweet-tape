@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import gsap from "gsap";
 import { playOnce, SOUNDS } from "@/lib/sounds";
 
@@ -11,16 +11,21 @@ const CURSORS = {
 };
 
 export default function CustomCursor() {
-  const cursorRef = useRef<HTMLDivElement | null>(null);
-
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // Strictly only run custom cursor on fine-pointer devices (mice/trackpads, not touch/mobile)
     if (!window.matchMedia("(pointer: fine)").matches) return;
 
-    const el = cursorRef.current;
-    if (!el) return;
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+    // Dynamically create cursor element only for fine pointer devices
+    const el = document.createElement("div");
+    el.className = "cursor-arrow";
+    el.setAttribute("aria-hidden", "true");
     document.documentElement.classList.add("has-cursor");
+    document.body.appendChild(el);
+
+    gsap.set(el, { autoAlpha: 0, rotation: 7 });
 
     let mouseX = 0;
     let mouseY = 0;
@@ -34,6 +39,17 @@ export default function CustomCursor() {
     const setX = gsap.quickSetter(el, "x", "px");
     const setY = gsap.quickSetter(el, "y", "px");
 
+    const setVisible = (show: boolean) => {
+      // Never show cursor while preloader is active
+      const isLoading = document.documentElement.hasAttribute("data-loading");
+      const targetAlpha = show && !isLoading ? 1 : 0;
+      gsap.to(el, {
+        autoAlpha: targetAlpha,
+        duration: prefersReducedMotion ? 0 : 0.2,
+        overwrite: "auto",
+      });
+    };
+
     const applyCursorStyle = (c: typeof CURSORS.arrow) => {
       el.style.backgroundImage = `url("${c.url}")`;
       el.style.width = `${c.w}px`;
@@ -43,7 +59,10 @@ export default function CustomCursor() {
     };
 
     applyCursorStyle(CURSORS.arrow);
-    gsap.set(el, { autoAlpha: 0, rotation: 7 });
+    Object.values(CURSORS).forEach((c) => {
+      const img = new Image();
+      img.src = c.url;
+    });
 
     const updateAppearance = () => {
       let mode: "arrow" | "pointer" | "type" = "arrow";
@@ -65,7 +84,7 @@ export default function CustomCursor() {
       gsap.to(el, {
         scale,
         rotation,
-        duration: 0.28,
+        duration: prefersReducedMotion ? 0 : 0.28,
         ease: "power3.out",
         overwrite: "auto",
       });
@@ -80,14 +99,14 @@ export default function CustomCursor() {
         currY = mouseY;
         setX(currX);
         setY(currY);
-        gsap.to(el, { autoAlpha: 1, duration: 0.2, overwrite: "auto" });
+        setVisible(true);
       }
     };
 
     const tickerUpdate = () => {
       if (!hasMoved) return;
-      currX += (mouseX - currX) * 0.75;
-      currY += (mouseY - currY) * 0.75;
+      currX += (mouseX - currX) * 0.85;
+      currY += (mouseY - currY) * 0.85;
       if (Math.abs(mouseX - currX) < 0.1 && Math.abs(mouseY - currY) < 0.1) {
         currX = mouseX;
         currY = mouseY;
@@ -128,12 +147,12 @@ export default function CustomCursor() {
     };
 
     const onPointerLeave = () => {
-      gsap.to(el, { autoAlpha: 0, duration: 0.2, overwrite: "auto" });
+      setVisible(false);
     };
 
     const onPointerEnter = () => {
       if (hasMoved) {
-        gsap.to(el, { autoAlpha: 1, duration: 0.2, overwrite: "auto" });
+        setVisible(true);
       }
     };
 
@@ -147,6 +166,14 @@ export default function CustomCursor() {
       }
     };
 
+    // When preloader finishes (sweettape:revealed), reveal cursor if mouse moved
+    const onRevealed = () => {
+      if (hasMoved) {
+        setVisible(true);
+      }
+    };
+    window.addEventListener("sweettape:revealed", onRevealed);
+
     document.addEventListener("pointermove", onPointerMove, { passive: true });
     document.addEventListener("pointerover", onPointerOver, { passive: true });
     document.addEventListener("pointerout", onPointerOut, { passive: true });
@@ -154,10 +181,12 @@ export default function CustomCursor() {
     document.addEventListener("pointerup", onPointerUp, { passive: true });
     document.addEventListener("pointerleave", onPointerLeave);
     document.addEventListener("pointerenter", onPointerEnter);
+    window.addEventListener("blur", onPointerLeave);
     document.addEventListener("click", onClick);
 
     return () => {
       gsap.ticker.remove(tickerUpdate);
+      window.removeEventListener("sweettape:revealed", onRevealed);
       document.removeEventListener("pointermove", onPointerMove);
       document.removeEventListener("pointerover", onPointerOver);
       document.removeEventListener("pointerout", onPointerOut);
@@ -165,10 +194,12 @@ export default function CustomCursor() {
       document.removeEventListener("pointerup", onPointerUp);
       document.removeEventListener("pointerleave", onPointerLeave);
       document.removeEventListener("pointerenter", onPointerEnter);
+      window.removeEventListener("blur", onPointerLeave);
       document.removeEventListener("click", onClick);
       document.documentElement.classList.remove("has-cursor");
+      el.remove();
     };
   }, []);
 
-  return <div ref={cursorRef} className="cursor-arrow" aria-hidden="true" />;
+  return null;
 }
