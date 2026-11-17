@@ -247,7 +247,144 @@ export default function TapeSlider() {
     }
 
     layoutRail();
-    track.classList.add("is-ready");
+
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // Elements for Section Entrance Animation
+    const rings = Array.from(track.querySelectorAll<HTMLElement>(".roll-ring"));
+    const showcases = Array.from(section.querySelectorAll<HTMLElement>(".middle .showcase"));
+    const peels = Array.from(section.querySelectorAll<HTMLElement>(".middle .showcase-tape"));
+    const exploreBtn = section.querySelector<HTMLElement>(".explore-button");
+    const exploreText = exploreBtn?.querySelector<HTMLElement>(".button-text");
+    const tags = Array.from(section.querySelectorAll<HTMLElement>(".left .tag .h6"));
+    const copyWords = Array.from(section.querySelectorAll<HTMLElement>(".left .subtext .body-rise"));
+    const topGlyphs = Array.from(section.querySelectorAll<HTMLElement>(".top-title img"));
+    const bottomGlyphs = Array.from(section.querySelectorAll<HTMLElement>(".bottom-title .glyph img"));
+
+    let revealObserver: IntersectionObserver | null = null;
+
+    if (prefersReducedMotion) {
+      track.classList.add("is-ready");
+      if (rings[0]) gsap.set(rings[0], { scale: 1, opacity: 1 });
+    } else {
+      // 1. Set initial hidden states before scroll reveal
+      track.classList.remove("is-ready");
+      gsap.set(rings, { scale: 0, opacity: 0 });
+      gsap.set(showcases, { rotationY: -90, z: -55, transformPerspective: 1000 });
+      peels.forEach((p) => p.style.setProperty("--peel", "0"));
+      if (exploreBtn) gsap.set(exploreBtn, { autoAlpha: 0, scale: 0, y: 30 });
+      if (exploreText) gsap.set(exploreText, { yPercent: 115 });
+      gsap.set(tags, { x: -80, opacity: 0 });
+      gsap.set(copyWords, { yPercent: 115 });
+      gsap.set(topGlyphs, { yPercent: 130 });
+      gsap.set(bottomGlyphs, { yPercent: 130 });
+      if (keyVisual) gsap.set(keyVisual, { scale: 0.6, opacity: 0 });
+
+      // 2. Trigger choreographed reveal on scroll entry
+      let hasRevealed = false;
+      revealObserver = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((e) => e.isIntersecting) && !hasRevealed) {
+            hasRevealed = true;
+            revealObserver?.disconnect();
+            revealObserver = null;
+            track.classList.add("is-ready");
+
+            const entryTl = gsap.timeline();
+
+            // Center 3D Tape Roll scale in
+            if (keyVisual) {
+              entryTl.to(
+                keyVisual,
+                { scale: 1, opacity: 1, duration: 0.85, ease: "back.out(1.6)" },
+                0.05
+              );
+            }
+
+            // Top title "THE" letters rise up
+            if (topGlyphs.length) {
+              entryTl.to(
+                topGlyphs,
+                { yPercent: 0, duration: 0.45, stagger: 0.08, ease: "power3.out" },
+                0.1
+              );
+            }
+
+            // Left tags slide in
+            if (tags.length) {
+              entryTl.to(
+                tags,
+                { x: 0, opacity: 1, duration: 0.5, stagger: 0.07, ease: "power3.out" },
+                0.2
+              );
+            }
+
+            // Showcases 3D flip in
+            showcases.forEach((sc, i) => {
+              entryTl.to(
+                sc,
+                { rotationY: 0, z: 0, duration: 0.45, ease: "power2.out" },
+                0.22 + 0.2 * i
+              );
+            });
+
+            // Bottom title "CREATIVE" letters rise up
+            if (bottomGlyphs.length) {
+              entryTl.to(
+                bottomGlyphs,
+                { yPercent: 0, duration: 0.45, stagger: 0.05, ease: "power3.out" },
+                0.26
+              );
+            }
+
+            // Left body copy words rise up
+            if (copyWords.length) {
+              entryTl.to(
+                copyWords,
+                { yPercent: 0, duration: 0.45, stagger: 0.015, ease: "power3.out" },
+                0.35
+              );
+            }
+
+            // Orbital track active ring pops in
+            if (rings[0]) {
+              entryTl.to(
+                rings[0],
+                { scale: 1, opacity: 1, duration: 0.55, ease: "back.out(1.6)" },
+                0.4
+              );
+            }
+
+            // Explore button spring bounce
+            if (exploreBtn) {
+              entryTl.set(exploreBtn, { autoAlpha: 1 }, 0.6);
+              entryTl.to(exploreBtn, { scale: 1, duration: 0.52, ease: "back.out(2.4)" }, 0.6);
+              entryTl.to(exploreBtn, { y: 0, duration: 0.68, ease: "back.out(1.9)" }, 0.6);
+              if (exploreText) {
+                entryTl.to(exploreText, { yPercent: 0, duration: 0.5, ease: "power3.out" }, 0.76);
+              }
+            }
+
+            // Showcase tape peels unpeel
+            peels.forEach((p, i) => {
+              const peelObj = { val: 0 };
+              entryTl.to(
+                peelObj,
+                {
+                  val: 1,
+                  duration: 0.62,
+                  ease: "power2.out",
+                  onUpdate: () => p.style.setProperty("--peel", String(peelObj.val)),
+                },
+                0.69 + 0.2 * i
+              );
+            });
+          }
+        },
+        { rootMargin: "0px 0px -15% 0px", threshold: 0.1 }
+      );
+      revealObserver.observe(section);
+    }
 
     const ro = new ResizeObserver(layoutRail);
     ro.observe(track);
@@ -312,6 +449,7 @@ export default function TapeSlider() {
       return () => {
         ro.disconnect();
         io.disconnect();
+        revealObserver?.disconnect();
         window.removeEventListener("pointermove", onPointerMove);
         viewerRef.current?.dispose();
       };
@@ -320,6 +458,7 @@ export default function TapeSlider() {
     return () => {
       ro.disconnect();
       io.disconnect();
+      revealObserver?.disconnect();
     };
   }, []);
 

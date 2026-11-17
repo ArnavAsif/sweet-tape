@@ -96,8 +96,8 @@ export default function HeroSection() {
       cardboardChars.forEach((c, idx) => {
         copyTl.fromTo(
           c,
-          { yPercent: 130 },
-          { yPercent: 0, duration: 0.6, ease: "power3.out" },
+          { yPercent: 130, y: 0 },
+          { yPercent: 0, y: 0, duration: 0.6, ease: "power3.out" },
           ((topPositions[idx] - minTop) / spanTop) * 1 + 0.35 * Math.random()
         );
       });
@@ -142,8 +142,8 @@ export default function HeroSection() {
       const cardboardWrapper = section.querySelector<HTMLElement>(".cardboard-wrapper");
       if (cardboardWrapper && cardboardChars.length) {
         const rect = cardboardWrapper.getBoundingClientRect();
-        const start = window.innerHeight * 0.85;
-        const total = cardboardWrapper.offsetHeight + window.innerHeight * 0.3;
+        const start = window.innerHeight * 0.95;
+        const total = cardboardWrapper.offsetHeight + window.innerHeight * 0.4;
         const rawProgress = (start - rect.top) / total;
         const targetProgress = Math.max(0, Math.min(1, rawProgress));
         if (targetProgress > copyProgress) {
