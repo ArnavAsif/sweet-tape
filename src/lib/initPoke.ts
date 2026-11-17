@@ -18,6 +18,7 @@ export function initPoke(container: HTMLElement, selector = ".title .h1"): () =>
   let fontSize = 16;
   let pointer: { x: number; y: number } | null = null;
   let animFrame = 0;
+  let touchTimeout: number | undefined;
   const settled = new Set<HTMLElement>();
 
   const update = () => {
@@ -26,7 +27,8 @@ export function initPoke(container: HTMLElement, selector = ".title .h1"): () =>
 
     for (const c of chars) {
       if (!settled.has(c)) {
-        if (!gsap.isTweening(c) && gsap.getProperty(c, "yPercent") === 0) {
+        const yPct = Number(gsap.getProperty(c, "yPercent") || 0);
+        if (!gsap.isTweening(c) && Math.abs(yPct) < 0.05) {
           settled.add(c);
           if (c.parentElement) c.parentElement.style.overflow = "visible";
         }
@@ -113,13 +115,26 @@ export function initPoke(container: HTMLElement, selector = ".title .h1"): () =>
     }
   };
 
-  target.addEventListener("pointermove", onPointerMove);
-  target.addEventListener("pointerleave", onPointerLeave);
+  const onPointerDown = (e: PointerEvent) => {
+    pointer = { x: e.clientX, y: e.clientY };
+    update();
+    window.clearTimeout(touchTimeout);
+    touchTimeout = window.setTimeout(onPointerLeave, 350);
+  };
+
+  if (isFine) {
+    target.addEventListener("pointermove", onPointerMove);
+    target.addEventListener("pointerleave", onPointerLeave);
+  } else {
+    target.addEventListener("pointerdown", onPointerDown);
+  }
 
   return () => {
     if (animFrame) cancelAnimationFrame(animFrame);
+    window.clearTimeout(touchTimeout);
     target.removeEventListener("pointermove", onPointerMove);
     target.removeEventListener("pointerleave", onPointerLeave);
+    target.removeEventListener("pointerdown", onPointerDown);
     delete target.dataset.poke;
     settled.forEach((c) => {
       if (c.parentElement) c.parentElement.style.overflow = "";

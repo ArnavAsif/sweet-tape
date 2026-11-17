@@ -5,6 +5,7 @@ import gsap from "gsap";
 import HeroTape3D from "./HeroTape3D";
 import StickyNote3D from "./StickyNote3D";
 import { playOnce, SOUNDS } from "@/lib/sounds";
+import { initPoke } from "@/lib/initPoke";
 
 export default function HeroSection() {
   const sectionRef = useRef<HTMLElement | null>(null);
@@ -53,8 +54,8 @@ export default function HeroSection() {
       if (titleChars.length) {
         revealTl.fromTo(
           shuffle(titleChars),
-          { yPercent: 130 },
-          { yPercent: 0, duration: 0.6, stagger: 0.02, ease: "power3.out" },
+          { yPercent: 130, y: 0 },
+          { yPercent: 0, y: 0, duration: 0.6, stagger: 0.02, ease: "power3.out" },
           0.1
         );
       }
@@ -112,32 +113,8 @@ export default function HeroSection() {
       currentY: 0,
     }));
 
-    // 4. Poke interaction on warped-text .h1
-    const h1El = section.querySelector<HTMLElement>(".warped-text .h1");
-    let pokeMouse: { x: number; y: number } | null = null;
-    let pokeChars: HTMLElement[] = [];
-    let charOffsets: { x: number; y: number }[] = [];
-
-    if (h1El && window.matchMedia("(hover: hover)").matches) {
-      pokeChars = Array.from(h1El.querySelectorAll<HTMLElement>(".char"));
-      const measurePoke = () => {
-        const h1Rect = h1El.getBoundingClientRect();
-        charOffsets = pokeChars.map((c) => {
-          const r = (c.parentElement || c).getBoundingClientRect();
-          return {
-            x: r.left - h1Rect.left + r.width / 2,
-            y: r.top - h1Rect.top + r.height / 2,
-          };
-        });
-      };
-      measurePoke();
-      window.addEventListener("resize", measurePoke, { passive: true });
-
-      const onPointerMove = (e: MouseEvent) => {
-        pokeMouse = { x: e.clientX, y: e.clientY };
-      };
-      window.addEventListener("pointermove", onPointerMove, { passive: true });
-    }
+    // 4. Elastic rubber poke interaction on headline .h1
+    const pokeCleanup = initPoke(section, ".title .h1");
 
     // Main animation loop
     let reqId: number;
@@ -185,29 +162,6 @@ export default function HeroSection() {
         );
         peel.style.setProperty("--peel", (1 - progress * 0.6).toFixed(3));
       });
-
-      // Character poke physics
-      if (h1El && pokeMouse && pokeChars.length && charOffsets.length) {
-        const h1Rect = h1El.getBoundingClientRect();
-        const relX = pokeMouse.x - h1Rect.left;
-        const relY = pokeMouse.y - h1Rect.top;
-        const radius = 100;
-
-        pokeChars.forEach((c, i) => {
-          const off = charOffsets[i];
-          if (!off) return;
-          const dist = Math.hypot(relX - off.x, relY - off.y);
-          if (dist < radius) {
-            const force = (1 - dist / radius) * 18;
-            const angle = Math.atan2(off.y - relY, off.x - relX);
-            const dx = Math.cos(angle) * force;
-            const dy = Math.sin(angle) * force;
-            c.style.transform = `translate3d(${dx.toFixed(1)}px, ${dy.toFixed(1)}px, 0)`;
-          } else if (c.style.transform && c.style.transform !== "none") {
-            c.style.transform = "none";
-          }
-        });
-      }
     };
 
     reqId = requestAnimationFrame(loop);
@@ -215,6 +169,7 @@ export default function HeroSection() {
     return () => {
       cancelAnimationFrame(reqId);
       copyTl.kill();
+      pokeCleanup();
     };
   }, []);
 

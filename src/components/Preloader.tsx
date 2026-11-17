@@ -22,6 +22,16 @@ export default function Preloader({ onComplete }: PreloaderProps) {
     const markEl = el.querySelector<HTMLElement>(".preloader-mark");
     const stickerImg = markEl?.dataset.sticker || "/assets/preloader-image.svg";
 
+    // Remove SSR fallback image once hydration takes over
+    const fallbackLogo = markEl?.querySelector(".preloader-fallback-logo");
+    if (fallbackLogo) {
+      fallbackLogo.remove();
+    }
+
+    if (markEl) {
+      gsap.set(markEl, { visibility: "visible", autoAlpha: 1 });
+    }
+
     const layers = [
       el.querySelector<HTMLElement>(".preloader-sheet"),
       ...Array.from(el.querySelectorAll<HTMLElement>(".preloader-layer")),
@@ -31,7 +41,7 @@ export default function Preloader({ onComplete }: PreloaderProps) {
     const colsCount = 64;
     const stickerContainer = document.createElement("div");
     stickerContainer.className = "preloader-sticker";
-    stickerContainer.style.opacity = "0";
+    stickerContainer.style.opacity = "1";
 
     const cols: HTMLElement[] = [];
     const inks: HTMLElement[] = [];
@@ -116,11 +126,12 @@ export default function Preloader({ onComplete }: PreloaderProps) {
     const ro = new ResizeObserver(resize);
     if (markEl) ro.observe(markEl);
 
+    // Initial pose constants matching sweet-tape.com
     const pose = {
       scale: 0.62,
       rotX: -78,
-      y: 0,
-      alpha: 0,
+      y: 20,
+      alpha: 1,
       bend: 1.85,
       fold: 1,
       wave: 0.35,
@@ -205,38 +216,43 @@ export default function Preloader({ onComplete }: PreloaderProps) {
       },
     });
 
-    // Sticker animation sequence
-    const duration = 0.92;
-    tl.to(pose, { alpha: 1, duration: duration * 0.28, ease: "none" }, 0.2);
-    tl.to(pose, { scale: 1, duration, ease: "back.out(2.8)" }, 0.2);
-    tl.to(pose, { rotX: 0, duration, ease: "back.out(2.24)" }, 0.2);
-    tl.to(pose, { y: 0, duration, ease: "power3.out" }, 0.2);
+    if (markEl) {
+      gsap.set(markEl, { visibility: "visible", autoAlpha: 1 });
+      tl.set(markEl, { visibility: "visible", autoAlpha: 1 }, 0);
+    }
 
-    const unrollStart = 0.2 + duration * 0.26;
+    // Sticker animation sequence starts immediately without blank delay
+    const duration = 0.92;
+    const stickerStart = 0.05;
+    tl.to(pose, { scale: 1, duration, ease: "back.out(2.8)" }, stickerStart);
+    tl.to(pose, { rotX: 0, duration, ease: "back.out(2.24)" }, stickerStart);
+    tl.to(pose, { y: 0, duration, ease: "power3.out" }, stickerStart);
+
+    const unrollStart = stickerStart + duration * 0.26;
     tl.to(pose, { fold: 0, duration: 0.74, ease: "sine.inOut" }, unrollStart);
     tl.to(pose, { bend: -1.85 * 0.72, duration: 0.74, ease: "sine.inOut" }, unrollStart);
     tl.to(pose, { bend: 0, duration: 0.4, ease: "sine.inOut" }, unrollStart + 0.74);
     tl.to(pose, { wave: 0, duration: 2, ease: "elastic.out(1, 0.42)" }, unrollStart);
-    tl.to(pose, { phase: 0.3 * 2, duration: 2, ease: "none" }, 0.2);
-    tl.to(pose, { sheen: 1, duration: 1.06, ease: "power1.inOut" }, 0.2);
+    tl.to(pose, { phase: 0.3 * 2, duration: 2, ease: "none" }, stickerStart);
+    tl.to(pose, { sheen: 1, duration: 1.06, ease: "power1.inOut" }, stickerStart);
 
     // Audio cue
-    tl.call(() => playOnce(SOUNDS.LOGO_ZOOM, 0.7), undefined, 0.3);
+    tl.call(() => playOnce(SOUNDS.LOGO_ZOOM, 0.7), undefined, stickerStart + 0.05);
 
     // Curtain layer pull-up reveal
-    const sweepStart = 2.4;
+    const sweepStart = 1.85;
     tl.call(() => {
       window.dispatchEvent(new Event("sweettape:sweeping"));
       playOnce(SOUNDS.TAPE_STRETCH, 0.8);
     }, undefined, sweepStart);
 
     layers.forEach((layer, idx) => {
-      const delay = sweepStart + idx * 0.09;
+      const delay = sweepStart + idx * 0.08;
       tl.to(
         layer,
         {
           yPercent: -100,
-          duration: 1.05 + idx * 0.02,
+          duration: 1.05 * (1 + idx * 0.018),
           ease: "power3.inOut",
         },
         delay
@@ -244,7 +260,7 @@ export default function Preloader({ onComplete }: PreloaderProps) {
     });
 
     if (markEl) {
-      tl.to(markEl, { autoAlpha: 0, duration: 0.4 }, sweepStart + 0.2);
+      tl.to(markEl, { autoAlpha: 0, duration: 0.3 }, sweepStart + 0.15);
     }
 
     return () => {
@@ -259,38 +275,24 @@ export default function Preloader({ onComplete }: PreloaderProps) {
 
   return (
     <div ref={containerRef} className="site-preloader" aria-hidden="true">
-      <div
-        className="preloader-layer arc-cut"
-        data-tape="stationery"
-        style={{ background: "#FF7B5F", zIndex: 6 }}
-      />
-      <div
-        className="preloader-layer arc-cut"
-        data-tape="masking"
-        style={{ background: "#fa8005", zIndex: 5 }}
-      />
-      <div
-        className="preloader-layer arc-cut"
-        data-tape="opp-quiet"
-        style={{ background: "#F7D000", zIndex: 4 }}
-      />
-      <div
-        className="preloader-layer arc-cut"
-        data-tape="opp"
-        style={{ background: "#b6fe00", zIndex: 3 }}
-      />
-      <div
-        className="preloader-layer arc-cut"
-        data-tape="double"
-        style={{ background: "#50CBFF", zIndex: 2 }}
-      />
-      <div
-        className="preloader-layer arc-cut"
-        data-tape="cloth"
-        style={{ background: "#2E3EAC", zIndex: 1 }}
-      />
+      {/* 6 colored paper sheets pulled up sequentially */}
+      <div className="preloader-layer arc-cut" style={{ background: "#FF7B5F", zIndex: 6 }} />
+      <div className="preloader-layer arc-cut" style={{ background: "#fa8005", zIndex: 5 }} />
+      <div className="preloader-layer arc-cut" style={{ background: "#F7D000", zIndex: 4 }} />
+      <div className="preloader-layer arc-cut" style={{ background: "#b6fe00", zIndex: 3 }} />
+      <div className="preloader-layer arc-cut" style={{ background: "#50CBFF", zIndex: 2 }} />
+      <div className="preloader-layer arc-cut" style={{ background: "#2E3EAC", zIndex: 1 }} />
+
+      {/* Main top sheet with mark */}
       <div className="preloader-sheet arc-cut" style={{ zIndex: 7 }}>
-        <div className="preloader-mark" data-sticker="/assets/preloader-image.svg" />
+        <div className="preloader-mark" data-sticker="/assets/preloader-image.svg">
+          <img
+            src="/assets/preloader-image.svg"
+            alt="SweetTape"
+            className="preloader-fallback-logo"
+            style={{ width: "100%", height: "100%", objectFit: "contain" }}
+          />
+        </div>
       </div>
     </div>
   );
