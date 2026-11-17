@@ -97,3 +97,76 @@ html, body {
   }
 }
 
+/* --- Creative Section (TapeSlider) & Orbital Track Polish --- */
+.tape-slider-parent {
+  --stage-air: clamp(80px, 10vw, 150px) !important;
+  overflow: clip !important;
+}
+
+/* Position .roll-parent so the 3 orbital roll buttons are 100% visible, inside right margin, and never cut off */
+@media (min-width: 744px) {
+  .tape-slider-parent .roll-parent {
+    position: absolute !important;
+    top: clamp(230px, 22.5vw, 350px) !important;
+    left: calc(100vw - clamp(24px, 2.8vw, 44px)) !important;
+    right: auto !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: visible !important;
+    pointer-events: none !important;
+    z-index: 10 !important;
+    translate: 0 calc(var(--band-clear, 8vw) + var(--slide-lift)) !important;
+    transform: none !important;
+    display: block !important;
+  }
+
+  .tape-slider-parent .roll-parent .rail-track {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    transform: translate(-50%, -50%) !important;
+    overflow: visible !important;
+  }
+
+  .tape-slider-parent .roll-parent .roll-it {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    translate: calc(-1 * var(--orbit-r) - 4.5vw) calc(-1 * var(--orbit-r) + 0.5vw) !important;
+    rotate: -12deg !important;
+    white-space: nowrap !important;
+    pointer-events: none !important;
+  }
+
+  .tape-slider-parent .rail-track button {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    width: var(--roll-size) !important;
+    height: var(--roll-size) !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+  }
+
+  .tape-slider-parent .rail-track button .roll-ring {
+    border-radius: 50% !important;
+  }
+}
+
+/* Ensure text clipping containers clip dipping/sliding text */
+.tape-slider-parent .top-title {
+  overflow: hidden !important;
+  padding-bottom: 2px !important;
+}
+.tape-slider-parent .bottom-title .glyph {
+  overflow: hidden !important;
+}
+.tape-slider-parent .left .tags {
+  overflow: hidden !important;
+}
+.tape-slider-parent .left .subtext {
+  overflow: hidden !important;
+}
+
+
+

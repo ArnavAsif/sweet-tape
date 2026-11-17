@@ -238,6 +238,8 @@ export default function TapeSlider() {
       buttons.forEach((btn, i) => {
         const rad = ((i * stepAngle + rotationRef.current) * Math.PI) / 180;
         gsap.set(btn, {
+          xPercent: -50,
+          yPercent: -50,
           x: Math.cos(rad) * radius,
           y: Math.sin(rad) * radius,
         });
@@ -249,6 +251,16 @@ export default function TapeSlider() {
 
     const ro = new ResizeObserver(layoutRail);
     ro.observe(track);
+
+    let isSectionIntersecting = true;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        isSectionIntersecting = entry.isIntersecting;
+        viewerRef.current?.setActive?.(isSectionIntersecting);
+      },
+      { rootMargin: "300px 0px" }
+    );
+    io.observe(section);
 
     // Initial 3D Viewer setup
     if (keyVisual) {
@@ -278,14 +290,15 @@ export default function TapeSlider() {
           viewerRef.current = viewer;
           viewer.show(PRODUCTS[0].model);
           viewer.spin(0);
+          viewer.setActive?.(isSectionIntersecting);
         })
         .catch((e) => {
           console.warn("TapeViewer error", e);
         });
 
-      // Pointer move reaction for 3D tape tilt
+      // Pointer move reaction for 3D tape tilt (only when intersecting)
       const onPointerMove = (e: MouseEvent) => {
-        if (!viewerRef.current || !keyVisual) return;
+        if (!viewerRef.current || !keyVisual || !isSectionIntersecting) return;
         const rect = keyVisual.getBoundingClientRect();
         const cx = rect.left + rect.width / 2;
         const cy = rect.top + rect.height / 2;
@@ -298,6 +311,7 @@ export default function TapeSlider() {
 
       return () => {
         ro.disconnect();
+        io.disconnect();
         window.removeEventListener("pointermove", onPointerMove);
         viewerRef.current?.dispose();
       };
@@ -305,6 +319,7 @@ export default function TapeSlider() {
 
     return () => {
       ro.disconnect();
+      io.disconnect();
     };
   }, []);
 
@@ -322,17 +337,28 @@ export default function TapeSlider() {
     const numButtons = PRODUCTS.length;
     const stepAngle = 360 / numButtons;
 
-    // 1. Rail track circular rotation
-    const diffAngle = ((180 - nextIndex * stepAngle - rotationRef.current) % 360 + 540) % 360 - 180;
+    // 1. Orbital track rotation calculation
+    const diffAngle =
+      (((180 - nextIndex * stepAngle - rotationRef.current) % 360) + 540) % 360 - 180;
     const targetAngle = rotationRef.current + diffAngle;
+    const startAngle = rotationRef.current;
     rotationRef.current = targetAngle;
 
-    if (track) {
-      const radius = track.clientWidth / 2 || 120;
-      const buttons = Array.from(track.querySelectorAll<HTMLButtonElement>("button"));
-      const rotObj = { r: targetAngle - diffAngle };
+    const radius = track ? track.clientWidth / 2 || 120 : 120;
+    const buttons = track ? Array.from(track.querySelectorAll<HTMLButtonElement>("button")) : [];
+    const rotObj = { r: startAngle };
 
-      gsap.to(rotObj, {
+    // Master Timeline
+    const tl = gsap.timeline({
+      onComplete: () => {
+        isTransitioningRef.current = false;
+      },
+    });
+
+    // 1. Rotate orbital buttons
+    tl.to(
+      rotObj,
+      {
         r: targetAngle,
         duration: 0.85,
         ease: "sine.inOut",
@@ -340,15 +366,18 @@ export default function TapeSlider() {
           buttons.forEach((btn, i) => {
             const rad = ((i * stepAngle + rotObj.r) * Math.PI) / 180;
             gsap.set(btn, {
+              xPercent: -50,
+              yPercent: -50,
               x: Math.cos(rad) * radius,
               y: Math.sin(rad) * radius,
             });
           });
         },
-      });
-    }
+      },
+      0
+    );
 
-    // 2. Sweep background layer transition
+    // 2. Sweep background layer with curved arc
     const bgOverlay = section.querySelector<HTMLElement>(".bg-overlay");
     const bgBase = bgOverlay?.querySelector<HTMLElement>(".bg-layer--base");
     const bgNext = bgOverlay?.querySelector<HTMLElement>(".bg-layer--next");
@@ -362,7 +391,7 @@ export default function TapeSlider() {
       bgNext.style.background = nextProduct.bg;
       bgNext.style.setProperty("--arc-h", `${arcH}px`);
 
-      gsap.fromTo(
+      tl.fromTo(
         bgNext,
         { y: -totalH },
         {
@@ -373,117 +402,243 @@ export default function TapeSlider() {
             bgBase.style.background = nextProduct.bg;
             gsap.set(bgNext, { y: "-100%" });
           },
-        }
+        },
+        0.05
       );
     }
 
     // 3. 3D Model Spin Transition
     if (viewerRef.current) {
       const spinObj = { deg: 0 };
-      gsap.to(spinObj, {
-        deg: 90,
-        duration: 0.45,
-        ease: "power2.in",
-        onUpdate: () => viewerRef.current?.spin(spinObj.deg),
-        onComplete: () => {
+      tl.to(
+        spinObj,
+        {
+          deg: 90,
+          duration: 0.38,
+          ease: "power2.in",
+          onUpdate: () => viewerRef.current?.spin(spinObj.deg),
+        },
+        0
+      );
+      tl.call(
+        () => {
           viewerRef.current?.show(nextProduct.model);
           viewerRef.current?.spin(-90);
-          gsap.to(spinObj, {
-            deg: 0,
-            duration: 0.45,
-            ease: "power2.out",
-            onUpdate: () => viewerRef.current?.spin(spinObj.deg),
-          });
         },
-      });
+        undefined,
+        0.38
+      );
+      const spinBackObj = { deg: -90 };
+      tl.to(
+        spinBackObj,
+        {
+          deg: 0,
+          duration: 0.42,
+          ease: "power2.out",
+          onUpdate: () => viewerRef.current?.spin(spinBackObj.deg),
+        },
+        0.38
+      );
     }
 
     // 4. Showcase photos 3D flip
     const showcases = Array.from(section.querySelectorAll<HTMLElement>(".middle .showcase"));
     showcases.forEach((sc, idx) => {
-      gsap.to(sc, {
-        rotationY: 90,
-        z: -55,
-        duration: 0.35,
-        delay: idx * 0.1,
-        ease: "power2.in",
-        onComplete: () => {
+      tl.to(
+        sc,
+        {
+          rotationY: 90,
+          z: -55,
+          duration: 0.35,
+          ease: "power2.in",
+        },
+        idx * 0.08
+      );
+    });
+
+    tl.call(
+      () => {
+        showcases.forEach((sc, idx) => {
           const img = sc.querySelector<HTMLImageElement>("img");
           if (img && nextProduct.showcase[idx]) {
             img.src = nextProduct.showcase[idx];
           }
-          gsap.fromTo(
-            sc,
-            { rotationY: -90, z: -55 },
-            { rotationY: 0, z: 0, duration: 0.35, ease: "power2.out" }
-          );
+        });
+      },
+      undefined,
+      0.38
+    );
+
+    showcases.forEach((sc, idx) => {
+      tl.fromTo(
+        sc,
+        { rotationY: -90, z: -55 },
+        {
+          rotationY: 0,
+          z: 0,
+          duration: 0.38,
+          ease: "power2.out",
         },
-      });
+        0.38 + idx * 0.08
+      );
     });
 
-    // 5. Letter cutouts dip and rise
+    // 5. TOP TITLE ("THE") DIP & RISE
     const topImgs = Array.from(section.querySelectorAll<HTMLElement>(".top-title img"));
     topImgs.forEach((img, idx) => {
-      gsap.to(img, {
-        y: 60,
-        opacity: 0,
-        duration: 0.25,
-        delay: idx * 0.04,
-        ease: "power2.in",
-        onComplete: () => {
-          gsap.fromTo(
-            img,
-            { y: -60, opacity: 0 },
-            { y: 0, opacity: 1, duration: 0.35, ease: "back.out(1.4)" }
-          );
+      tl.to(
+        img,
+        {
+          y: 70,
+          opacity: 0,
+          duration: 0.28,
+          ease: "power2.in",
         },
-      });
+        idx * 0.05
+      );
     });
 
-    const bottomGlyphs = Array.from(
-      section.querySelectorAll<HTMLElement>(".bottom-title .glyph img")
+    tl.call(
+      () => {
+        section.style.setProperty("--word-colour", nextProduct.wordColor);
+      },
+      undefined,
+      0.35
     );
-    bottomGlyphs.forEach((glyph, idx) => {
-      gsap.to(glyph, {
-        y: 80,
-        opacity: 0,
-        duration: 0.25,
-        delay: idx * 0.03,
-        ease: "power2.in",
-      });
+
+    topImgs.forEach((img, idx) => {
+      tl.fromTo(
+        img,
+        { y: -70, opacity: 0 },
+        {
+          y: 0,
+          opacity: 1,
+          duration: 0.4,
+          ease: "back.out(1.4)",
+        },
+        0.42 + idx * 0.05
+      );
     });
 
-    // 6. Tags and text slide
-    const tagsWrapper = section.querySelector<HTMLElement>(".left .tags");
-    if (tagsWrapper) {
-      gsap.to(tagsWrapper, {
-        x: -250,
-        opacity: 0,
-        duration: 0.3,
-        ease: "power2.in",
-        onComplete: () => {
-          setActiveIndex(nextIndex);
+    // 6. BOTTOM TITLE (WORD GLYPHS) SEQUENCED DIP & RISE
+    const bottomTitle = section.querySelector<HTMLElement>(".bottom-title");
+    const glyphImgs = Array.from(
+      bottomTitle?.querySelectorAll<HTMLImageElement>(".glyph img") ?? []
+    );
+
+    // DIP DOWN: stagger each letter down
+    glyphImgs.forEach((glyph, idx) => {
+      const dipY = (glyph.offsetHeight || 110) + 15;
+      tl.to(
+        glyph,
+        {
+          y: dipY,
+          duration: 0.3,
+          ease: "power2.in",
+        },
+        idx * 0.04
+      );
+    });
+
+    // AT MIDPOINT (t = 0.36s): switch dataset.word and activeIndex
+    tl.call(
+      () => {
+        setActiveIndex(nextIndex);
+        if (bottomTitle) {
+          bottomTitle.dataset.word = nextProduct.word;
+        }
+        glyphImgs.forEach((glyph) => {
+          const dipY = (glyph.offsetHeight || 110) + 15;
+          gsap.set(glyph, { y: dipY });
+        });
+      },
+      undefined,
+      0.36
+    );
+
+    // RISE UP (t = 0.42s): stagger each letter rising up to y = 0
+    glyphImgs.forEach((glyph, idx) => {
+      tl.to(
+        glyph,
+        {
+          y: 0,
+          duration: 0.45,
+          ease: "power3.out",
+        },
+        0.42 + idx * 0.04
+      );
+    });
+
+    // 7. LEFT TAGS & BODY COPY SLIDE & REVEAL
+    const tagElements = Array.from(section.querySelectorAll<HTMLElement>(".left .tags .h6"));
+    tagElements.forEach((tag, idx) => {
+      tl.to(
+        tag,
+        {
+          x: -250,
+          opacity: 0,
+          duration: 0.28,
+          ease: "power2.in",
+        },
+        idx * 0.05
+      );
+    });
+
+    const bodyCopy = section.querySelector<HTMLElement>(".left .subtext");
+    if (bodyCopy) {
+      tl.to(
+        bodyCopy,
+        {
+          y: 25,
+          opacity: 0,
+          duration: 0.26,
+          ease: "power2.in",
+        },
+        0
+      );
+    }
+
+    tl.call(
+      () => {
+        const leftEl = section.querySelector<HTMLElement>(".left");
+        if (leftEl) {
+          leftEl.style.setProperty("--tag-bg", nextProduct.tagBg);
+          leftEl.style.setProperty("--tag-ink", nextProduct.tagInk);
+          leftEl.style.setProperty("--ink", nextProduct.ink);
+        }
+
+        const newTags = Array.from(section.querySelectorAll<HTMLElement>(".left .tags .h6"));
+        newTags.forEach((tag, idx) => {
           gsap.fromTo(
-            tagsWrapper,
+            tag,
             { x: -250, opacity: 0 },
             {
               x: 0,
               opacity: 1,
               duration: 0.45,
+              delay: idx * 0.06,
               ease: "power3.out",
-              onComplete: () => {
-                isTransitioningRef.current = false;
-              },
             }
           );
-        },
-      });
-    } else {
-      setActiveIndex(nextIndex);
-      setTimeout(() => {
-        isTransitioningRef.current = false;
-      }, 500);
-    }
+        });
+
+        const newCopy = section.querySelector<HTMLElement>(".left .subtext");
+        if (newCopy) {
+          gsap.fromTo(
+            newCopy,
+            { y: 25, opacity: 0 },
+            {
+              y: 0,
+              opacity: 1,
+              duration: 0.45,
+              ease: "power3.out",
+            }
+          );
+        }
+      },
+      undefined,
+      0.42
+    );
   };
 
   return (
@@ -688,10 +843,10 @@ export default function TapeSlider() {
               </div>
 
               <div className="bottom-title" data-word={curProduct.word}>
-                {curProduct.letters.map((letter, li) => (
+                {Array.from({ length: 8 }).map((_, li) => (
                   <span key={li} className="glyph">
                     <img
-                      src={`/assets/words/${curProduct.word}/${letter}.webp`}
+                      src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E"
                       alt=""
                     />
                   </span>

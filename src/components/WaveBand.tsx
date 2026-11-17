@@ -31,21 +31,40 @@ export default function WaveBand() {
     let isDisposed = false;
     let isIntersecting = true;
 
+    // --- Performance Optimization: Pre-sampled Path LUT ---
+    // Instead of calling path.getPointAtLength 18 times on every frame (which forces synchronous layout),
+    // we pre-sample the static Bezier path once into a Look-Up Table (LUT).
+    // Runtime badge positioning is then an instant O(1) array access.
+    const totalLen = path.getTotalLength();
+    const LUT_SAMPLES = 2500;
+    const lut: { x: number; y: number; angle: number }[] = new Array(LUT_SAMPLES + 1);
+
+    for (let i = 0; i <= LUT_SAMPLES; i++) {
+      const dist = (i / LUT_SAMPLES) * totalLen;
+      const pt = path.getPointAtLength(dist);
+      const ptBefore = path.getPointAtLength(Math.max(dist - 8, 0));
+      const ptAfter = path.getPointAtLength(Math.min(dist + 8, totalLen));
+      const angle = (180 * Math.atan2(ptAfter.y - ptBefore.y, ptAfter.x - ptBefore.x)) / Math.PI;
+      lut[i] = {
+        x: Math.round(pt.x * 10) / 10,
+        y: Math.round(pt.y * 10) / 10,
+        angle: Math.round(angle * 10) / 10,
+      };
+    }
+
     function positionBadges(startOffset: number, unitLen: number, badgeCenterOffset: number) {
-      if (!path) return;
-      const totalLen = path.getTotalLength();
       badges.forEach((badge, idx) => {
         const dist = startOffset + idx * unitLen + badgeCenterOffset;
         if (dist < 0 || dist > totalLen) {
           badge.style.visibility = "hidden";
           return;
         }
-        const pt = path.getPointAtLength(dist);
-        const ptBefore = path.getPointAtLength(Math.max(dist - 8, 0));
-        const ptAfter = path.getPointAtLength(Math.min(dist + 8, totalLen));
-        const angle = (180 * Math.atan2(ptAfter.y - ptBefore.y, ptAfter.x - ptBefore.x)) / Math.PI;
-
-        badge.setAttribute("transform", `translate(${pt.x} ${pt.y}) rotate(${angle})`);
+        const lutIdx = Math.min(
+          LUT_SAMPLES,
+          Math.max(0, Math.round((dist / totalLen) * LUT_SAMPLES))
+        );
+        const sample = lut[lutIdx];
+        badge.setAttribute("transform", `translate(${sample.x} ${sample.y}) rotate(${sample.angle})`);
         badge.style.visibility = "visible";
       });
     }
@@ -64,10 +83,14 @@ export default function WaveBand() {
       let initialStartOffset = 40;
       if (path) {
         let left = 0;
-        let right = path.getTotalLength();
+        let right = totalLen;
         for (let i = 0; i < 40; i++) {
           const mid = (left + right) / 2;
-          if (path.getPointAtLength(mid).x < 0) {
+          const idx = Math.min(
+            LUT_SAMPLES,
+            Math.max(0, Math.round((mid / totalLen) * LUT_SAMPLES))
+          );
+          if (lut[idx].x < 0) {
             left = mid;
           } else {
             right = mid;
@@ -90,21 +113,19 @@ export default function WaveBand() {
         return;
       }
 
-      tween = gsap.fromTo(
-        textPath,
-        { attr: { startOffset: initialStartOffset } },
-        {
-          attr: { startOffset: initialStartOffset - unitLen },
-          duration: unitLen / 120,
-          ease: "none",
-          repeat: -1,
-          paused: true,
-          onUpdate() {
-            const currentVal = parseFloat(textPath.getAttribute("startOffset") || "0");
-            positionBadges(currentVal, unitLen, badgeCenterOffset);
-          },
-        }
-      );
+      const animTarget = { offset: initialStartOffset };
+
+      tween = gsap.to(animTarget, {
+        offset: initialStartOffset - unitLen,
+        duration: unitLen / 120,
+        ease: "none",
+        repeat: -1,
+        paused: true,
+        onUpdate() {
+          textPath.setAttribute("startOffset", animTarget.offset.toFixed(1));
+          positionBadges(animTarget.offset, unitLen, badgeCenterOffset);
+        },
+      });
 
       positionBadges(initialStartOffset, unitLen, badgeCenterOffset);
 
@@ -114,13 +135,13 @@ export default function WaveBand() {
       const clampSpeed = gsap.utils.clamp(-4, 5);
 
       tickerFn = () => {
+        if (!isIntersecting) return;
         const curY = window.scrollY;
         const delta = curY - lastScrollY;
         lastScrollY = curY;
-        if (!isIntersecting) return;
 
-        const targetSpeed = clampSpeed(0.9 + 0.5 * delta);
-        const lerpFactor = Math.abs(targetSpeed - 0.9) > Math.abs(currentScale - 0.9) ? 0.12 : 0.03;
+        const targetSpeed = clampSpeed(0.9 + 0.4 * delta);
+        const lerpFactor = Math.abs(targetSpeed - 0.9) > Math.abs(currentScale - 0.9) ? 0.1 : 0.03;
         currentScale += (targetSpeed - currentScale) * lerpFactor;
         tween?.timeScale(currentScale);
       };
@@ -130,9 +151,13 @@ export default function WaveBand() {
       io = new IntersectionObserver(
         ([entry]) => {
           isIntersecting = entry.isIntersecting;
-          tween?.paused(!isIntersecting);
+          if (isIntersecting) {
+            tween?.play();
+          } else {
+            tween?.pause();
+          }
         },
-        { rootMargin: "600px 0px" }
+        { rootMargin: "300px 0px" }
       );
       io.observe(section);
     });
