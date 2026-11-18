@@ -1,0 +1,307 @@
+{
+  "cloth": {
+    "slug": "cloth",
+    "title": "THE FIXER",
+    "word": "fixer",
+    "model": "/assets/tapes/Cloth-Tape.glb",
+    "clarity": 0,
+    "cardImg": "/api/media/file/cloth-card.webp",
+    "introStyleStr": "--ring:#d9d2f7;--bg:#2E3EAC;--word:#919CFF;--tag-bg:#172795;--tag-ink:#919CFF;--ink:#919CFF;--info-bg:#16289C;--info-ink:#919CFF;--stage-bg:#2739AC;--word-colour:#101E83",
+    "glyphs": [
+      "/assets/words/fixer/F.webp",
+      "/assets/words/fixer/I.webp",
+      "/assets/words/fixer/X.webp",
+      "/assets/words/fixer/E.webp",
+      "/assets/words/fixer/R.webp",
+      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E",
+      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E",
+      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E"
+    ],
+    "innerInfoStyle": "--ring:#d9d2f7;--bg:#2E3EAC;--word:#919CFF;--tag-bg:#172795;--tag-ink:#919CFF;--ink:#919CFF;--info-bg:#16289C;--info-ink:#919CFF",
+    "shotImg": "/api/media/file/img-cloth-tape-3.webp",
+    "peelImg": "/assets/black-cloth-tape-x4.png",
+    "note": [
+      "Practical,",
+      "no-drama,",
+      "and quietly heroic.",
+      "Doesn't need a plan,",
+      "only five seconds."
+    ],
+    "story": "Frank didn't choose the problem-solver life. The problem-solver life chose him. He's been the guy people call in a panic ever since, and he's never once said no.",
+    "sibStyle": "--sib-bg:#16289C;--sib-card-bg:#3A4AB8;--sib-title-ink:#919CFF",
+    "siblings": [
+      {
+        "style": "--sib-raised:0;--sib-tilt:-4.414deg",
+        "img": "/assets/sibling-cloth-normal.webp",
+        "alt": "Cloth Tape Normal",
+        "dots": [
+          "#000000",
+          "#FF1616"
+        ]
+      },
+      {
+        "style": "--sib-raised:1;--sib-tilt:0deg",
+        "img": "/assets/sibling-cloth-strong.webp",
+        "alt": "Cloth Tape Strong.Black",
+        "dots": [
+          "#000000",
+          "#FF1616"
+        ]
+      }
+    ],
+    "powStyle": "--pow-bg:#182997;--pow-lip:#16289C;--pow-ink:#919CFF;--pow-card-bg:#919CFF;--pow-card-rest:#3A4AB8;--pow-card-ink:#101E83",
+    "powerCards": [],
+    "reelStyle": "--reel-bg:#182997;--reel-ink:#919CFF",
+    "nextStyle": "--reel-bg:#182997;--reel-ink:#919CFF;--ring:#e4f7a8;--bg:#b6fe00;--word:#52AF16;--tag-bg:#013900;--tag-ink:#b6fe00;--ink:#013900",
+    "nextHref": "/products/opp",
+    "nextLabel": "OPP tape",
+    "nextRollImg": "/assets/sibling-opp-normal.webp"
+  },
+  "masking": {
+    "slug": "masking",
+    "title": "THE CREATIVE",
+    "word": "creative",
+    "model": "/assets/tapes/Masking-Tape.glb",
+    "clarity": 0,
+    "cardImg": "/api/media/file/masking-card.webp",
+    "introStyleStr": "--ring:#fff1a2;--bg:#fa8005;--word:#fcd805;--tag-bg:#EB7100;--tag-ink:#FCD805;--ink:#FFDC13;--info-bg:#D66B00;--info-ink:#fcd805;--stage-bg:#fa8005;--word-colour:#fcd805",
+    "glyphs": [
+      "/assets/words/creative/C.webp",
+      "/assets/words/creative/R.webp",
+      "/assets/words/creative/E.webp",
+      "/assets/words/creative/A.webp",
+      "/assets/words/creative/T.webp",
+      "/assets/words/creative/I.webp",
+      "/assets/words/creative/V.webp",
+      "/assets/words/creative/E2.webp"
+    ],
+    "innerInfoStyle": "--ring:#fff1a2;--bg:#fa8005;--word:#fcd805;--tag-bg:#EB7100;--tag-ink:#FCD805;--ink:#FFDC13;--info-bg:#D66B00;--info-ink:#fcd805",
+    "shotImg": "/api/media/file/img-masking-tape-2.webp",
+    "peelImg": "/assets/masking-tape-x2.png",
+    "note": [
+      "Adaptable, dependable,",
+      "and always ready for",
+      "the next job.",
+      "The one who never",
+      "complains, no matter",
+      "what you throw at him."
+    ],
+    "story": "Handy Andy is the jack of all trades. Painting, labelling, bundling, light sealing, whatever the job, he shows up ready and gets it done without breaking a sweat.",
+    "sibStyle": "--sib-bg:#D66B00;--sib-card-bg:#FA8005;--sib-title-ink:#FFDC13",
+    "siblings": [
+      {
+        "style": "--sib-raised:0;--sib-tilt:-4.414deg",
+        "img": "/api/media/file/Group%20876.webp",
+        "alt": "masking tape normal",
+        "dots": []
+      },
+      {
+        "style": "--sib-raised:1;--sib-tilt:0deg",
+        "img": "/assets/sibling-masking-strong.webp",
+        "alt": "masking tape strong",
+        "dots": []
+      }
+    ],
+    "powStyle": "--pow-bg:#FA8005;--pow-lip:#D66B00;--pow-ink:#fcd805;--pow-card-bg:#FFDC13;--pow-card-rest:#D66B00;--pow-card-ink:#D66B00",
+    "powerCards": [],
+    "reelStyle": "--reel-bg:#FA8005;--reel-ink:#FFDC13",
+    "nextStyle": "--reel-bg:#FA8005;--reel-ink:#FFDC13;--ring:#a8dcf0;--bg:#50CBFF;--word:#007db2;--tag-bg:#1b87b8;--tag-ink:#8bd8f5;--ink:#1b87b8",
+    "nextHref": "/products/double",
+    "nextLabel": "Double-sided tissue tape",
+    "nextRollImg": "/api/media/file/double-card.webp"
+  },
+  "opp": {
+    "slug": "opp",
+    "title": "THE RELIABLE",
+    "word": "reliable",
+    "model": "/assets/tapes/Header-Brown-Inner.glb",
+    "clarity": 0.09,
+    "cardImg": "/api/media/file/opp-tape-inner-product.webp",
+    "introStyleStr": "--ring:#e4f7a8;--bg:#b6fe00;--word:#52AF16;--tag-bg:#013900;--tag-ink:#b6fe00;--ink:#013900;--info-bg:#0D470C;--info-ink:#C6FD00;--stage-bg:#b6fe00;--word-colour:#52AF16",
+    "glyphs": [
+      "/assets/words/reliable/R.webp",
+      "/assets/words/reliable/E.webp",
+      "/assets/words/reliable/L.webp",
+      "/assets/words/reliable/I.webp",
+      "/assets/words/reliable/A.webp",
+      "/assets/words/reliable/B.webp",
+      "/assets/words/reliable/L2.webp",
+      "/assets/words/reliable/E2.webp"
+    ],
+    "innerInfoStyle": "--ring:#e4f7a8;--bg:#b6fe00;--word:#52AF16;--tag-bg:#013900;--tag-ink:#b6fe00;--ink:#013900;--info-bg:#0D470C;--info-ink:#C6FD00",
+    "shotImg": "/api/media/file/img-opp-tape-1.webp",
+    "peelImg": "/assets/opp-tape-x4.png",
+    "note": [
+      "steady, no-nonsense.",
+      "the strong heroic",
+      "type who lets his",
+      "grip do the talking."
+    ],
+    "story": "Built for the big leagues. BIG BARRY Hold showed up the day someone taped a fragile box with the wrong tape and watched it arrive in pieces. Never again.",
+    "sibStyle": "--sib-bg:#0D470C",
+    "siblings": [
+      {
+        "style": "--sib-raised:0;--sib-tilt:-4.414deg",
+        "img": "/assets/sibling-opp-normal.webp",
+        "alt": "opp tape normal",
+        "dots": [
+          "#4f774e",
+          "#ce8900"
+        ]
+      },
+      {
+        "style": "--sib-raised:1;--sib-tilt:0deg",
+        "img": "/assets/sibling-opp-strong.webp",
+        "alt": "opp tape strong",
+        "dots": [
+          "#4f774e",
+          "#ce8900"
+        ]
+      },
+      {
+        "style": "--sib-raised:0;--sib-tilt:3.578deg",
+        "img": "/assets/sibling-opp-xtra-strong.webp",
+        "alt": "opp tape extra strong",
+        "dots": [
+          "#4f774e",
+          "#ce8900"
+        ]
+      }
+    ],
+    "powStyle": "--pow-lip:#0D470C;--pow-card-bg:#033D02",
+    "powerCards": [],
+    "reelStyle": "",
+    "nextStyle": "--ring:#fff0b0;--bg:#F7D000;--word:#a88700;--tag-bg:#a88700;--tag-ink:#ffeda0;--ink:#8a6f00",
+    "nextHref": "/products/opp-quiet",
+    "nextLabel": "OPP tape, low noise",
+    "nextRollImg": "/api/media/file/opp-quiet-card.webp"
+  },
+  "opp-quiet": {
+    "slug": "opp-quiet",
+    "title": "THE SILENT",
+    "word": "silent",
+    "model": "/assets/tapes/Low-Noise-Tape.glb",
+    "clarity": 0.1,
+    "cardImg": "/api/media/file/opp-quiet-card.webp",
+    "introStyleStr": "--ring:#fff0b0;--bg:#F7D000;--word:#a88700;--tag-bg:#a88700;--tag-ink:#ffeda0;--ink:#8a6f00;--info-bg:#716D00;--info-ink:#D1CA00;--stage-bg:#F7D000;--word-colour:#a88700",
+    "glyphs": [
+      "/assets/words/silent/S.webp",
+      "/assets/words/silent/I.webp",
+      "/assets/words/silent/L.webp",
+      "/assets/words/silent/E.webp",
+      "/assets/words/silent/N.webp",
+      "/assets/words/silent/T.webp",
+      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E",
+      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E"
+    ],
+    "innerInfoStyle": "--ring:#fff0b0;--bg:#F7D000;--word:#a88700;--tag-bg:#a88700;--tag-ink:#ffeda0;--ink:#8a6f00;--info-bg:#716D00;--info-ink:#D1CA00",
+    "shotImg": "/api/media/file/img-opp-no-noise-tape-2.webp",
+    "peelImg": "/assets/low-noise-x4-clear.png",
+    "note": [
+      "Steady. No-nonsense.",
+      "The strong heroic",
+      "type who lets his",
+      "grip do the talking."
+    ],
+    "story": "Built for the big leagues. BIG BARRY Hold showed up the day someone taped a fragile box with the wrong tape and watched it arrive in pieces. Never again.",
+    "sibStyle": "",
+    "siblings": [],
+    "powStyle": "--pow-bg:#D1CA00;--pow-lip:#716D00;--pow-ink:#676300;--pow-card-bg:#716D00;--pow-card-rest:#C9C200;--pow-card-ink:#C7C000",
+    "powerCards": [],
+    "reelStyle": "--reel-bg:#D1CA00;--reel-ink:#676300",
+    "nextStyle": "--reel-bg:#D1CA00;--reel-ink:#676300;--ring:#fff1a2;--bg:#fa8005;--word:#fcd805;--tag-bg:#EB7100;--tag-ink:#FCD805;--ink:#FFDC13",
+    "nextHref": "/products/masking",
+    "nextLabel": "Masking tape",
+    "nextRollImg": "/api/media/file/masking-card.webp"
+  },
+  "stationery": {
+    "slug": "stationery",
+    "title": "THE BUDDY",
+    "word": "buddy",
+    "model": "/assets/tapes/Cello-Tape.glb",
+    "clarity": 0.11,
+    "cardImg": "/api/media/file/stationery-card.svg",
+    "introStyleStr": "--ring:#ffd9c2;--bg:#FF7B5F;--word:#a82712;--tag-bg:#9e2a12;--tag-ink:#f2a08c;--ink:#9e2a12;--info-bg:#EFA183;--info-ink:#A7280E;--stage-bg:#FF7B5F;--word-colour:#a82712",
+    "glyphs": [
+      "/assets/words/buddy/B.webp",
+      "/assets/words/buddy/U.webp",
+      "/assets/words/buddy/D.webp",
+      "/assets/words/buddy/D2.webp",
+      "/assets/words/buddy/Y.webp",
+      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E",
+      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E",
+      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E"
+    ],
+    "innerInfoStyle": "--ring:#ffd9c2;--bg:#FF7B5F;--word:#a82712;--tag-bg:#9e2a12;--tag-ink:#f2a08c;--ink:#9e2a12;--info-bg:#EFA183;--info-ink:#A7280E",
+    "shotImg": "/api/media/file/img-stationery-tape.webp",
+    "peelImg": "/assets/low-noise-x4-clear.png",
+    "note": [
+      "Light, neat, and effortlessly",
+      "charming. Small but never",
+      "underestimated.",
+      "The one who makes",
+      "everything look intentional."
+    ],
+    "story": "Lucy showed up on a gift-wrapping table one December and never really left. She realised pretty quickly that the finishing touch is the one, people actually remember.",
+    "sibStyle": "--sib-bg:#EFA183;--sib-card-bg:#DD593D;--sib-title-ink:#A7280E",
+    "siblings": [
+      {
+        "style": "--sib-raised:0;--sib-tilt:-4.414deg",
+        "img": "/api/media/file/Group%20872.webp",
+        "alt": "stationary tape normal",
+        "dots": []
+      },
+      {
+        "style": "--sib-raised:1;--sib-tilt:0deg",
+        "img": "/assets/sibling-stationery-cello.svg",
+        "alt": "stationary tape cello",
+        "dots": []
+      }
+    ],
+    "powStyle": "--pow-bg:#E56145;--pow-lip:#EFA183;--pow-ink:#A7280E;--pow-card-bg:#EFA183;--pow-card-rest:#CF4D31;--pow-card-ink:#A7280E",
+    "powerCards": [],
+    "reelStyle": "--reel-bg:#E56145;--reel-ink:#EFA283",
+    "nextStyle": "--reel-bg:#E56145;--reel-ink:#EFA283;--ring:#d9d2f7;--bg:#2E3EAC;--word:#919CFF;--tag-bg:#172795;--tag-ink:#919CFF;--ink:#919CFF",
+    "nextHref": "/products/cloth",
+    "nextLabel": "Cloth tape",
+    "nextRollImg": "/api/media/file/cloth-card.webp"
+  },
+  "double": {
+    "slug": "double",
+    "title": "THE TRUSTY",
+    "word": "trusty",
+    "model": "/assets/tapes/Double-Tape.glb",
+    "clarity": 0.04,
+    "cardImg": "/api/media/file/double-card.webp",
+    "introStyleStr": "--ring:#a8dcf0;--bg:#50CBFF;--word:#007db2;--tag-bg:#1b87b8;--tag-ink:#8bd8f5;--ink:#1b87b8;--info-bg:#A2E3FF;--info-ink:#007DB1;--stage-bg:#50CBFF;--word-colour:#007db2",
+    "glyphs": [
+      "/assets/words/trusty/T.webp",
+      "/assets/words/trusty/R.webp",
+      "/assets/words/trusty/U.webp",
+      "/assets/words/trusty/S.webp",
+      "/assets/words/trusty/T2.webp",
+      "/assets/words/trusty/Y.webp",
+      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E",
+      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E"
+    ],
+    "innerInfoStyle": "--ring:#a8dcf0;--bg:#50CBFF;--word:#007db2;--tag-bg:#1b87b8;--tag-ink:#8bd8f5;--ink:#1b87b8;--info-bg:#A2E3FF;--info-ink:#007DB1",
+    "shotImg": "/api/media/file/img-double-sided-tape.webp",
+    "peelImg": "/assets/double-side-x4.png",
+    "note": [
+      "Reserved, precise, and",
+      "completely unbothered by",
+      "the lack of recognition. He",
+      "knows what he did."
+    ],
+    "story": "Sam realised early on that the best work is the kind nobody notices. While everyone else wanted the spotlight, he chose the background and quietly became the most indispensable one in the room.",
+    "sibStyle": "",
+    "siblings": [],
+    "powStyle": "--pow-bg:#3EB9ED;--pow-lip:#A2E3FF;--pow-ink:#007DB1;--pow-card-bg:#98D9F5;--pow-card-rest:#0D8BC4;--pow-card-ink:#007DB1",
+    "powerCards": [],
+    "reelStyle": "--reel-bg:#3EB9ED;--reel-ink:#007DB1",
+    "nextStyle": "--reel-bg:#3EB9ED;--reel-ink:#007DB1;--ring:#ffd9c2;--bg:#FF7B5F;--word:#a82712;--tag-bg:#9e2a12;--tag-ink:#f2a08c;--ink:#9e2a12",
+    "nextHref": "/products/stationery",
+    "nextLabel": "Stationery tape",
+    "nextRollImg": "/api/media/file/stationery-card.svg"
+  }
+}
