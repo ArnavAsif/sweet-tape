@@ -281,6 +281,7 @@ export default function SiteMenu() {
                     aria-label={item.label}
                     tabIndex={isOpen ? 0 : -1}
                     onMouseEnter={handleLinkHover}
+                    onClick={() => setIsOpen(false)}
                   >
                     <span className="menu-thumb" aria-hidden="true">
                       <img src={item.thumb} alt="" />

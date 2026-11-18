@@ -1,6 +1,7 @@
 // @ts-nocheck
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 
 const t = THREE;
 const a = THREE;
@@ -29,7 +30,7 @@ export const createTapeViewer = function(i,l,s,p,v){
   }
   let S=()=>!!v&&b(()=>o.AMOUNT>0),x={...v?y:g,...s},A=new t.Scene,T=new t.PerspectiveCamera(35,1,.01,100);
   T.position.set(0,0,2.3);
-  let E=new a.WebGLRenderer({antialias:!0,alpha:!0,powerPreference:"high-performance"});
+  let E=new a.WebGLRenderer({antialias:!0,alpha:!0});
   E.toneMapping=t.NoToneMapping;
   E.setClearColor(0,0);
   let O=new t.DirectionalLight(0xffffff,x.key);
@@ -47,12 +48,13 @@ export const createTapeViewer = function(i,l,s,p,v){
   let I=null;
   let R=()=>Promise.resolve().then(()=>{
     if(Q)return;
-    let t=new a.PMREMGenerator(E);
-    let n=t.fromScene(new THREE.Scene(),.04).texture;
-    t.dispose();
-    A.environment=n;
+    let pmrem=new a.PMREMGenerator(E);
+    let room=new RoomEnvironment();
+    let envTex=pmrem.fromScene(room,.04).texture;
+    pmrem.dispose();
+    A.environment=envTex;
     A.environmentIntensity=x.env;
-    I=n;
+    I=envTex;
     U=!0;
   }).catch(()=>{});
   let N=x.env>0?R():null;

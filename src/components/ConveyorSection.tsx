@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { playOnce, SOUNDS } from "@/lib/sounds";
 import { initHandNote } from "@/lib/aboutAnimations";
+
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 function getStride(track: HTMLElement): number {
   const repeat = Number(track.dataset.repeat) || 1;
@@ -41,6 +43,14 @@ function computeShift(track: HTMLElement, stride: number, to: number): number {
 
 export default function ConveyorSection() {
   const sectionRef = useRef<HTMLElement | null>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
+
+  useIsomorphicLayoutEffect(() => {
+    return () => {
+      cleanupRef.current?.();
+      cleanupRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -177,20 +187,26 @@ export default function ConveyorSection() {
 
     const cleanupHandNote = initHandNote(section);
 
-    return () => {
+    const cleanup = () => {
       window.removeEventListener("resize", onResize);
       gsap.ticker.remove(onTicker);
       visibilityTrigger.kill();
       delete section.dataset.reveal;
-      riseTween?.scrollTrigger?.kill();
+      riseTween?.scrollTrigger?.kill(true);
       riseTween?.kill();
-      scrubTl.scrollTrigger?.kill();
+      scrubTl.scrollTrigger?.kill(true);
       scrubTl.kill();
       section.style.removeProperty("--mark-scale");
       cleanupHandNote();
       for (const t of trackData) {
         t.el.style.setProperty("--x", `${t.from}vw`);
       }
+    };
+
+    cleanupRef.current = cleanup;
+    return () => {
+      cleanupRef.current?.();
+      cleanupRef.current = null;
     };
   }, []);
 

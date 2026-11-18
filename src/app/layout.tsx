@@ -58,6 +58,27 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
+              if (typeof window !== 'undefined') {
+                const origRemoveChild = Node.prototype.removeChild;
+                Node.prototype.removeChild = function(child) {
+                  if (child.parentNode !== this) {
+                    if (child.parentNode) {
+                      return child.parentNode.removeChild(child);
+                    }
+                    return child;
+                  }
+                  return origRemoveChild.call(this, child);
+                };
+                const origInsertBefore = Node.prototype.insertBefore;
+                Node.prototype.insertBefore = function(newNode, referenceNode) {
+                  if (referenceNode && referenceNode.parentNode !== this) {
+                    if (referenceNode.parentNode) {
+                      return referenceNode.parentNode.insertBefore(newNode, referenceNode);
+                    }
+                  }
+                  return origInsertBefore.call(this, newNode, referenceNode);
+                };
+              }
               if (!window.location.hash) {
                 if ('scrollRestoration' in history) {
                   history.scrollRestoration = 'manual';
