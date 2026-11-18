@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { createHeroTape } from "@/lib/createHeroTape";
 import { createLoop, playOnce, SOUNDS } from "@/lib/sounds";
+import { whenSweeping } from "@/lib/loader";
 
 export default function HeroTape3D() {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -217,11 +218,32 @@ export default function HeroTape3D() {
     gsap.ticker.add(onTick);
 
     // Initial entrance animation matching sweet-tape.com
-    gsap.fromTo(
+    const tapeEntrance = gsap.fromTo(
       container,
       { y: "13vw", scale: 0.82 },
-      { y: 0, scale: 1, duration: 1.3, ease: "back.out(1.5)", delay: 0.1 }
+      { y: 0, scale: 1, duration: 1.3, ease: "back.out(1.5)", paused: true }
     );
+
+    let sweepTimer: gsap.core.Tween | null = null;
+    let tapeObs: MutationObserver | null = null;
+
+    const unsubsSweeping = whenSweeping(() => {
+      const playEntrance = () => {
+        sweepTimer = gsap.delayedCall(0, () => tapeEntrance.play());
+      };
+      if (container.dataset.tape !== undefined) {
+        playEntrance();
+      } else {
+        tapeObs = new MutationObserver(() => {
+          if (container.dataset.tape !== undefined) {
+            tapeObs?.disconnect();
+            tapeObs = null;
+            playEntrance();
+          }
+        });
+        tapeObs.observe(container, { attributes: true, attributeFilter: ["data-tape"] });
+      }
+    });
 
     createHeroTape(container, "/assets/tapes/Low-Noise-Tape.glb")
       .then((instance: any) => {
@@ -240,6 +262,10 @@ export default function HeroTape3D() {
 
     return () => {
       isDisposed = true;
+      unsubsSweeping();
+      tapeObs?.disconnect();
+      sweepTimer?.kill();
+      tapeEntrance.kill();
       window.removeEventListener("resize", updateBounds);
       io.disconnect();
       ro.disconnect();

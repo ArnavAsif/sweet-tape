@@ -6,6 +6,7 @@ import HeroTape3D from "./HeroTape3D";
 import StickyNote3D from "./StickyNote3D";
 import { playOnce, SOUNDS } from "@/lib/sounds";
 import { initPoke } from "@/lib/initPoke";
+import { whenRevealed } from "@/lib/loader";
 
 export default function HeroSection() {
   const sectionRef = useRef<HTMLElement | null>(null);
@@ -31,52 +32,66 @@ export default function HeroSection() {
     const heroMark = section.querySelector<HTMLElement>(".hero-mark");
     const cornerPerf = section.querySelector<HTMLElement>(".corner-perf");
     const cornerChars = Array.from(section.querySelectorAll<HTMLElement>(".corner-mark .char"));
+    const allChars = Array.from(section.querySelectorAll<HTMLElement>(".char"));
+
+    gsap.set(allChars, { y: 0, yPercent: 130 });
+    section.dataset.reveal = "live";
+
+    let unsubsRevealed: (() => void) | null = null;
+    let revealTimer: gsap.core.Tween | null = null;
+    let markTimer: gsap.core.Tween | null = null;
+    let cornerTimer: gsap.core.Tween | null = null;
+    let titleTl: gsap.core.Tween | null = null;
+    let markTl: gsap.core.Tween | null = null;
+    let cornerTl: gsap.core.Timeline | null = null;
 
     if (prefersReducedMotion) {
-      gsap.set(section.querySelectorAll(".char"), { clearProps: "transform" });
-      section.dataset.reveal = "live";
+      gsap.set(allChars, { clearProps: "transform" });
     } else {
-      // Set initial positions
-      gsap.set(section.querySelectorAll(".char"), { yPercent: 130 });
-      section.dataset.reveal = "live";
-
-      const revealTl = gsap.timeline({ delay: 0.2 });
+      titleTl = gsap.fromTo(
+        shuffle(titleChars),
+        { y: 0, yPercent: 130 },
+        { yPercent: 0, duration: 0.6, stagger: 0.025, ease: "power3.out", paused: true }
+      );
 
       if (heroMark) {
-        revealTl.fromTo(
+        const isMobile = window.matchMedia("(max-width: 743px)").matches;
+        markTl = gsap.fromTo(
           heroMark,
-          { yPercent: -170, opacity: 0 },
-          { yPercent: 0, opacity: 1, duration: 0.85, ease: "back.out(1.6)" },
-          0
+          isMobile ? { scale: 0 } : { yPercent: -170 },
+          { ...(isMobile ? { scale: 1 } : { yPercent: 0 }), duration: 0.85, ease: "back.out(1.6)", paused: true }
         );
       }
 
-      if (titleChars.length) {
-        revealTl.fromTo(
-          shuffle(titleChars),
-          { yPercent: 130, y: 0 },
-          { yPercent: 0, y: 0, duration: 0.6, stagger: 0.02, ease: "power3.out" },
-          0.1
-        );
+      if (cornerPerf || cornerChars.length) {
+        cornerTl = gsap.timeline({ paused: true });
+        if (cornerPerf) {
+          cornerTl.fromTo(
+            cornerPerf,
+            { clipPath: "inset(0% 0% 100% 0%)" },
+            { clipPath: "inset(0% 0% 0% 0%)", duration: 0.5, ease: "power2.out" },
+            0
+          );
+        }
+        if (cornerChars.length) {
+          cornerTl.fromTo(
+            shuffle(cornerChars),
+            { y: 0, yPercent: 130 },
+            { yPercent: 0, duration: 0.6, stagger: 0.012, ease: "power3.out" },
+            0.12
+          );
+        }
       }
 
-      if (cornerPerf) {
-        revealTl.fromTo(
-          cornerPerf,
-          { clipPath: "inset(0% 0% 100% 0%)" },
-          { clipPath: "inset(0% 0% 0% 0%)", duration: 0.5, ease: "power2.out" },
-          0.3
-        );
-      }
-
-      if (cornerChars.length) {
-        revealTl.fromTo(
-          shuffle(cornerChars),
-          { yPercent: 130 },
-          { yPercent: 0, duration: 0.5, stagger: 0.012, ease: "power2.out" },
-          0.4
-        );
-      }
+      unsubsRevealed = whenRevealed(() => {
+        revealTimer = gsap.delayedCall(0.3, () => titleTl?.play());
+        if (markTl) {
+          markTimer = gsap.delayedCall(0.45, () => markTl?.play());
+        }
+        if (cornerTl) {
+          cornerTimer = gsap.delayedCall(0.55, () => cornerTl?.play());
+        }
+      });
     }
 
     // 2. Cardboard text copy scroll reveal
@@ -170,6 +185,15 @@ export default function HeroSection() {
       cancelAnimationFrame(reqId);
       copyTl.kill();
       pokeCleanup();
+      unsubsRevealed?.();
+      revealTimer?.kill();
+      markTimer?.kill();
+      cornerTimer?.kill();
+      titleTl?.kill();
+      markTl?.kill();
+      cornerTl?.kill();
+      gsap.set(allChars, { clearProps: "transform" });
+      if (heroMark) gsap.set(heroMark, { clearProps: "transform,opacity" });
     };
   }, []);
 

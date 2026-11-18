@@ -48,7 +48,7 @@ export const createTapeViewer = function(i,l,s,p,v){
   let R=()=>Promise.resolve().then(()=>{
     if(Q)return;
     let t=new a.PMREMGenerator(E);
-    let n=t.fromScene(new e,.04).texture;
+    let n=t.fromScene(new THREE.Scene(),.04).texture;
     t.dispose();
     A.environment=n;
     A.environmentIntensity=x.env;
