@@ -4,6 +4,8 @@ import { getProductBySlug, getAllProductSlugs } from "@/data/products";
 import ProductIntroSection from "@/components/ProductIntroSection";
 import ProductInnerInfoSection from "@/components/ProductInnerInfoSection";
 import SiblingsSection from "@/components/SiblingsSection";
+import SuperPowersSection from "@/components/SuperPowersSection";
+import ProductReelSection from "@/components/ProductReelSection";
 import NextUpSection from "@/components/NextUpSection";
 import SiteFooter from "@/components/SiteFooter";
 
@@ -44,7 +46,11 @@ export default async function ProductDetailPage({ params }: PageProps) {
     <>
       <ProductIntroSection product={product} />
       <ProductInnerInfoSection product={product} />
-      <SiblingsSection product={product} />
+      {product.siblings && product.siblings.length > 0 && (
+        <SiblingsSection product={product} />
+      )}
+      <SuperPowersSection slug={slug} />
+      <ProductReelSection slug={slug} />
       <NextUpSection product={product} />
       <SiteFooter />
     </>
