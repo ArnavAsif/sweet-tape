@@ -3,6 +3,7 @@ import "./globals.css";
 import CustomCursor from "@/components/CustomCursor";
 import Preloader from "@/components/Preloader";
 import SiteMenu from "@/components/SiteMenu";
+import TopBand from "@/components/TopBand";
 import SvgFilters from "@/components/SvgFilters";
 import SmoothScroll from "@/components/SmoothScroll";
 
@@ -71,6 +72,7 @@ export default function RootLayout({
         <SvgFilters />
         <CustomCursor />
         <Preloader />
+        <TopBand />
         <SiteMenu />
         <SmoothScroll>
           <main id="main" tabIndex={-1}>

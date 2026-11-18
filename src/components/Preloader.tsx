@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import gsap from "gsap";
-import { release, startSweep, isHeld } from "@/lib/loader";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { release, startSweep, isHeld, hold } from "@/lib/loader";
 
 interface PaletteItem {
   id: string;
@@ -86,23 +88,68 @@ function getLastTiming(
   return timings[timings.length - 1] ?? { at: fallbackAt, duration: fallbackDuration };
 }
 
+function getInternalUrl(e: MouseEvent): string | null {
+  if (
+    e.defaultPrevented ||
+    e.button !== 0 ||
+    e.metaKey ||
+    e.ctrlKey ||
+    e.shiftKey ||
+    e.altKey
+  ) {
+    return null;
+  }
+  const anchor = (e.target as HTMLElement)?.closest?.("a");
+  if (
+    !anchor ||
+    !(anchor instanceof HTMLAnchorElement) ||
+    anchor.hasAttribute("download") ||
+    anchor.dataset.noTransition !== undefined ||
+    (anchor.target && anchor.target !== "_self")
+  ) {
+    return null;
+  }
+  try {
+    const dest = new URL(anchor.href, window.location.href);
+    if (
+      dest.origin !== window.location.origin ||
+      (dest.pathname === window.location.pathname && dest.search === window.location.search)
+    ) {
+      return null;
+    }
+    return dest.pathname + dest.search + dest.hash;
+  } catch {
+    return null;
+  }
+}
+
+interface TransitionController {
+  to: (url: string) => void;
+  arrived: () => void;
+  destroy: () => void;
+}
+
 export default function Preloader() {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [hidden, setHidden] = useState(false);
+  const transitionRef = useRef<TransitionController | null>(null);
+  const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
+  const pathname = usePathname();
 
+  // 1. Initial Page Load Animation
   useEffect(() => {
     const root = containerRef.current;
     if (!root) return;
 
     if (!isHeld()) {
       gsap.set(root, { visibility: "hidden" });
-      setHidden(true);
       return;
     }
 
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       release();
-      setHidden(true);
+      gsap.set(root, { visibility: "hidden" });
       return;
     }
 
@@ -120,11 +167,7 @@ export default function Preloader() {
     const sweepAt = isStickerMissing ? 0.3 : Math.max(4.37 - perfOffset, 2.9);
 
     gsap.ticker.lagSmoothing(250, 120);
-    const tl = gsap.timeline({
-      onComplete: () => {
-        setHidden(true);
-      },
-    });
+    const tl = gsap.timeline();
 
     let removeTickerDraw: (() => void) | null = null;
     let destroySticker: (() => void) | null = null;
@@ -179,148 +222,116 @@ export default function Preloader() {
       let markHeight = 0;
       let colWidth = 0;
 
-      const resize = () => {
-        if (!markEl) return;
-        markWidth = markEl.clientWidth || 320;
-        markHeight = (118 * markWidth) / 191;
+      const measure = () => {
+        const rect = markEl.getBoundingClientRect();
+        markWidth = rect.width;
+        markHeight = rect.height;
         colWidth = markWidth / colsCount;
-        markEl.style.perspective = `${6.6 * markWidth}px`;
-        stickerContainer.style.transformOrigin = "50% 25%";
+
+        cols.forEach((col, idx) => {
+          col.style.width = `${colWidth + 0.5}px`;
+          col.style.left = `${idx * colWidth}px`;
+        });
+
         const bgSize = `${markWidth}px ${markHeight}px`;
-
-        for (let i = 0; i < colsCount; i++) {
-          const bgPos = `${-(i * colWidth)}px 0`;
-          const col = cols[i];
-          col.style.left = `${i * colWidth}px`;
-          col.style.width = `${colWidth + 1.3}px`;
-          col.style.height = `${markHeight}px`;
-
-          inks[i].style.backgroundSize = bgSize;
-          inks[i].style.backgroundPosition = bgPos;
-
-          sheens[i].style.backgroundSize = bgSize;
-          sheens[i].style.webkitMaskSize = bgSize;
-          sheens[i].style.maskSize = bgSize;
-          sheens[i].style.webkitMaskPosition = bgPos;
-          sheens[i].style.maskPosition = bgPos;
-
-          backs[i].style.webkitMaskSize = bgSize;
-          backs[i].style.maskSize = bgSize;
-          backs[i].style.webkitMaskPosition = bgPos;
-          backs[i].style.maskPosition = bgPos;
-        }
+        inks.forEach((ink, idx) => {
+          ink.style.backgroundSize = bgSize;
+          ink.style.backgroundPosition = `-${idx * colWidth}px 0px`;
+        });
+        sheens.forEach((sheen, idx) => {
+          sheen.style.webkitMaskSize = bgSize;
+          sheen.style.webkitMaskPosition = `-${idx * colWidth}px 0px`;
+          sheen.style.maskSize = bgSize;
+          sheen.style.maskPosition = `-${idx * colWidth}px 0px`;
+        });
+        backs.forEach((back, idx) => {
+          back.style.webkitMaskSize = bgSize;
+          back.style.webkitMaskPosition = `-${idx * colWidth}px 0px`;
+          back.style.maskSize = bgSize;
+          back.style.maskPosition = `-${idx * colWidth}px 0px`;
+        });
       };
 
-      resize();
-      const ro = new ResizeObserver(resize);
-      ro.observe(markEl);
+      measure();
+      window.addEventListener("resize", measure);
+
+      destroySticker = () => {
+        window.removeEventListener("resize", measure);
+        stickerContainer.remove();
+      };
 
       const pose = {
+        alpha: 0,
         scale: N_CONFIG.SCALE,
         rotX: N_CONFIG.TILT,
-        y: 0,
-        alpha: 0,
-        bend: L_CONFIG.BEND,
+        y: N_CONFIG.RISE,
         fold: L_CONFIG.FOLD,
-        wave: L_CONFIG.WAVE,
+        bend: 0,
+        wave: 1,
         phase: 0,
         sheen: 0,
       };
 
-      const angles = new Float64Array(colsCount);
-      const posX = new Float64Array(colsCount);
-      const posZ = new Float64Array(colsCount);
+      const drawFrame = () => {
+        const radX = (pose.rotX * Math.PI) / 180;
+        const cosX = Math.cos(radX);
+        const sinX = Math.sin(radX);
 
-      const draw = () => {
-        if (!markWidth) return;
-        stickerContainer.style.opacity = String(pose.alpha);
-        stickerContainer.style.transform = `translate3d(0, ${pose.y.toFixed(2)}px, 0) rotateX(${pose.rotX.toFixed(
-          2
-        )}deg) scale(${pose.scale.toFixed(4)})`;
+        const currentWidth = markWidth * pose.scale;
+        const currentHeight = markHeight * pose.scale;
+        const effectiveColWidth = currentWidth / colsCount;
 
-        let curX = 0;
-        let curZ = 0;
+        const unrollCutoff = (1 - pose.fold) * colsCount;
 
         for (let i = 0; i < colsCount; i++) {
-          const u = (i + 0.5) / colsCount;
-          let foldFactor = (u - (L_CONFIG.FOLD_AT - L_CONFIG.CREASE)) / (2 * L_CONFIG.CREASE);
-          foldFactor = foldFactor < 0 ? 0 : foldFactor > 1 ? 1 : foldFactor;
-          foldFactor = foldFactor * foldFactor * (3 - 2 * foldFactor);
+          const col = cols[i];
+          const sheen = sheens[i];
+          const u = i / colsCount;
 
-          const angle =
-            pose.bend * (u - 0.5) +
-            pose.fold * foldFactor +
-            pose.wave * Math.sin(2 * Math.PI * (L_CONFIG.FREQ * u - pose.phase));
-          const cosA = Math.cos(angle);
-          const sinA = Math.sin(angle);
+          let bendAngle = 0;
+          let waveDisp = 0;
 
-          angles[i] = angle;
-          posX[i] = curX + (cosA * colWidth) / 2;
-          posZ[i] = curZ + (sinA * colWidth) / 2;
-          curX += cosA * colWidth;
-          curZ += sinA * colWidth;
-        }
+          if (i > unrollCutoff) {
+            const rollProg = (i - unrollCutoff) / (colsCount - unrollCutoff || 1);
+            bendAngle = rollProg * rollProg * pose.bend;
+          }
 
-        const offsetX = (markWidth - curX) / 2;
-        const centerZ = posZ[32];
+          if (pose.wave > 0.001) {
+            const waveArg = u * Math.PI * 2 * L_CONFIG.FREQ + pose.phase;
+            waveDisp = Math.sin(waveArg) * pose.wave * (currentHeight * 0.08);
+          }
 
-        for (let i = 0; i < colsCount; i++) {
-          const tx = posX[i] + offsetX - (i * colWidth + colWidth / 2);
-          const tz = posZ[i] - centerZ;
-          const deg = (-(180 * angles[i]) / Math.PI).toFixed(2);
-          cols[i].style.transform = `translate3d(${tx.toFixed(2)}px, 0, ${tz.toFixed(
-            2
-          )}px) rotateY(${deg}deg)`;
+          const localX = (i - colsCount / 2) * effectiveColWidth;
+          const localY = pose.y * currentHeight + waveDisp;
 
-          const cosVal = Math.cos(angles[i]);
-          const brightness = Math.max(0.2, 1 - 0.48 * (1 - cosVal)).toFixed(3);
-          inks[i].style.filter = `brightness(${brightness})`;
+          const projY = localY * cosX;
+          const projZ = -localY * sinX;
 
-          const isFront = cosVal >= 0;
-          if (frontStates[i] !== isFront) {
+          const totalTilt = pose.rotX + bendAngle;
+          const isFront = Math.cos((totalTilt * Math.PI) / 180) >= 0;
+
+          if (isFront !== frontStates[i]) {
             frontStates[i] = isFront;
-            inks[i].style.opacity = isFront ? "1" : "0";
-            sheens[i].style.opacity = isFront ? "1" : "0";
-            backs[i].style.opacity = isFront ? "0" : "1";
+            backs[i].style.display = isFront ? "none" : "block";
+            inks[i].style.display = isFront ? "block" : "none";
           }
-          if (!isFront) {
-            const backBrightness = Math.max(0.2, 1 - (1 + cosVal)).toFixed(3);
-            backs[i].style.filter = `brightness(${backBrightness})`;
+
+          col.style.transform = `translate3d(${localX}px, ${projY}px, ${projZ}px) rotateX(${totalTilt}deg) scale(${pose.scale})`;
+
+          if (pose.sheen > 0 && pose.sheen < 1) {
+            const sheenPos = (pose.sheen * 2 - 1) * markWidth;
+            sheen.style.backgroundPosition = `${sheenPos - i * colWidth}px 0px`;
           }
-          sheens[i].style.backgroundPosition = `${(
-            -(i * colWidth) +
-            (2 * pose.sheen - 1) * markWidth
-          ).toFixed(2)}px 0`;
         }
+
+        stickerContainer.style.opacity = String(pose.alpha);
       };
 
-      gsap.ticker.add(draw);
-      removeTickerDraw = () => gsap.ticker.remove(draw);
-      destroySticker = () => {
-        ro.disconnect();
-        stickerContainer.remove();
-        markEl.style.removeProperty("perspective");
-      };
+      gsap.ticker.add(drawFrame);
+      removeTickerDraw = () => gsap.ticker.remove(drawFrame);
 
-      const o = P_CONST; // 1.0s delay of solid green screen
-      tl.set(markEl, { autoAlpha: 0 }, 0);
-      tl.set(markEl, { autoAlpha: 1 }, o);
-      tl.set(
-        pose,
-        {
-          scale: N_CONFIG.SCALE,
-          rotX: N_CONFIG.TILT,
-          y: () => N_CONFIG.RISE * (markEl?.clientWidth || 320),
-          alpha: 0,
-          bend: L_CONFIG.BEND,
-          fold: L_CONFIG.FOLD,
-          wave: L_CONFIG.WAVE,
-          phase: 0,
-          sheen: 0,
-        },
-        o
-      );
-
+      const o = 0.3;
+      tl.call(() => gsap.set(stickerContainer, { opacity: 1 }), undefined, o);
       tl.to(pose, { alpha: 1, duration: N_CONFIG.DURATION * N_CONFIG.FADE, ease: "none" }, o);
       tl.to(pose, { scale: 1, duration: N_CONFIG.DURATION, ease: `back.out(${N_CONFIG.BACK})` }, o);
       tl.to(
@@ -393,7 +404,188 @@ export default function Preloader() {
     };
   }, []);
 
-  if (hidden) return null;
+  // 2. Inter-Page Navigation Transitions
+  useEffect(() => {
+    const root = containerRef.current;
+    if (!root) return;
+
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    gsap.registerPlugin(ScrollTrigger);
+
+    let state: "idle" | "covering" | "covered" | "revealing" = "idle";
+    let isCovered = false;
+    let hasArrived = false;
+    let animTl: gsap.core.Timeline | null = null;
+    let checkTimer: gsap.core.Tween | null = null;
+    let revealTimer: gsap.core.Tween | null = null;
+    let graceTimer: gsap.core.Tween | null = null;
+
+    function to(url: string) {
+      if (state !== "idle") return;
+      if (prefersReduced) {
+        routerRef.current.push(url, { scroll: false });
+        return;
+      }
+
+      state = "covering";
+      isCovered = false;
+      hasArrived = false;
+      graceTimer?.kill();
+      graceTimer = null;
+
+      hold();
+      gsap.ticker.lagSmoothing(120, 33);
+      gsap.set(root, { visibility: "visible" });
+
+      const layers = getLayers(root).reverse();
+      const timings = calculateLayerTimings(layers, {
+        at: 0.2,
+        step: 0.055,
+        spread: 0.4,
+        duration: 0.8,
+        drag: 0.018,
+      });
+
+      animTl = gsap.timeline({
+        onComplete: () => {
+          state = "covered";
+          isCovered = true;
+          checkReveal();
+        },
+      });
+
+      for (const item of timings) {
+        animTl.fromTo(
+          item.el,
+          { yPercent: -100 },
+          { yPercent: 0, duration: item.duration, ease: M_EASE },
+          item.at
+        );
+      }
+
+      const firstTiming = timings[0];
+      const navAt = firstTiming ? firstTiming.at + firstTiming.duration : 0.8;
+      animTl.call(
+        () => {
+          window.scrollTo(0, 0);
+          try {
+            routerRef.current.push(url, { scroll: false });
+          } catch {
+            // fallback if router interrupted
+          }
+        },
+        [],
+        navAt
+      );
+
+      checkTimer = gsap.delayedCall(6, () => {
+        hasArrived = true;
+        checkReveal();
+      });
+    }
+
+    function checkReveal() {
+      if (isCovered && hasArrived && state !== "revealing") {
+        state = "revealing";
+        checkTimer?.kill();
+        checkTimer = null;
+        revealTimer = gsap.delayedCall(0.1, reveal);
+      }
+    }
+
+    function reveal() {
+      revealTimer = null;
+      window.scrollTo(0, 0);
+      ScrollTrigger.refresh();
+      animTl?.kill();
+      animTl = gsap.timeline({
+        onComplete: () => {
+          state = "idle";
+          gsap.set(root, { visibility: "hidden" });
+        },
+      });
+
+      const layers = getLayers(root);
+      const timings = calculateLayerTimings(layers, {
+        at: 0,
+        step: 0.055,
+        spread: 0.4,
+        duration: 0.8,
+        drag: 0.018,
+      });
+
+      for (const item of timings) {
+        animTl.to(
+          item.el,
+          { yPercent: -100, duration: item.duration, ease: M_EASE },
+          item.at
+        );
+      }
+
+      const lastTiming = getLastTiming(timings, 0, 0.8);
+      const finishAt = lastTiming.at + lastTiming.duration;
+      animTl.call(startSweep, [], lastTiming.at + 0.33 * lastTiming.duration);
+      animTl.call(
+        () => {
+          release();
+          graceTimer = gsap.delayedCall(0.35, () => {
+            graceTimer = null;
+            gsap.ticker.lagSmoothing(0);
+          });
+        },
+        [],
+        lastTiming.at + 0.55 * lastTiming.duration
+      );
+      animTl.set(root, { visibility: "hidden" }, finishAt);
+    }
+
+    const ac = new AbortController();
+    document.addEventListener(
+      "click",
+      (e) => {
+        const url = getInternalUrl(e);
+        if (url) {
+          e.preventDefault();
+          to(url);
+        }
+      },
+      { capture: true, signal: ac.signal }
+    );
+
+    transitionRef.current = {
+      to,
+      arrived: () => {
+        if (state !== "idle" && state !== "revealing") {
+          hasArrived = true;
+          checkReveal();
+        }
+      },
+      destroy: () => {
+        ac.abort();
+        checkTimer?.kill();
+        revealTimer?.kill();
+        graceTimer?.kill();
+        animTl?.kill();
+        if (state !== "idle") {
+          gsap.set(root, { visibility: "hidden" });
+          gsap.set(getLayers(root), { yPercent: -100 });
+          release();
+          gsap.ticker.lagSmoothing(0);
+          state = "idle";
+        }
+      },
+    };
+
+    return () => {
+      transitionRef.current?.destroy();
+      transitionRef.current = null;
+    };
+  }, []);
+
+  // When pathname changes (route arrived)
+  useEffect(() => {
+    transitionRef.current?.arrived();
+  }, [pathname]);
 
   return (
     <>
@@ -418,11 +610,12 @@ export default function Preloader() {
         ))}
         <div
           className="preloader-sheet arc-cut"
-          style={{
-            zIndex: PALETTE.length + 1,
-          }}
+          style={{ zIndex: PALETTE.length + 1 }}
         >
-          <div className="preloader-mark" data-sticker="/assets/preloader-image.svg" />
+          <div
+            className="preloader-mark"
+            data-sticker="/assets/preloader-image.svg"
+          />
         </div>
       </div>
     </>

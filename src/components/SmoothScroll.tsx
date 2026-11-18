@@ -19,6 +19,7 @@ export default function SmoothScroll({ children }: { children: ReactNode }) {
       wheelMultiplier: 1,
       touchMultiplier: 2,
     });
+    (window as any).__lenis = lenis;
 
     lenis.on("scroll", ScrollTrigger.update);
 

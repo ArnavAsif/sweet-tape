@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import gsap from "gsap";
 import { playOnce, SOUNDS, setSoundOn, onSoundChange } from "@/lib/sounds";
+import { onHold } from "@/lib/loader";
 
 interface MenuItem {
   label: string;
@@ -42,6 +43,12 @@ export default function SiteMenu() {
   useEffect(() => {
     return onSoundChange((active) => {
       setSoundActive(active);
+    });
+  }, []);
+
+  useEffect(() => {
+    return onHold(() => {
+      setIsOpen(false);
     });
   }, []);
 
