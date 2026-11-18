@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { playOnce, SOUNDS } from "@/lib/sounds";
@@ -22,6 +22,15 @@ function parseStyleString(str: string): React.CSSProperties {
   return style as React.CSSProperties;
 }
 
+function shuffle<T>(arr: T[]): T[] {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
 interface SiblingsSectionProps {
   product: ProductData;
 }
@@ -29,7 +38,6 @@ interface SiblingsSectionProps {
 export default function SiblingsSection({ product }: SiblingsSectionProps) {
   const sectionRef = useRef<HTMLElement | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
-  const [activeIdx, setActiveIdx] = useState<number>(0);
 
   useIsomorphicLayoutEffect(() => {
     return () => {
@@ -42,76 +50,186 @@ export default function SiblingsSection({ product }: SiblingsSectionProps) {
     const section = sectionRef.current;
     if (!section) return;
 
-    gsap.registerPlugin(ScrollTrigger);
-    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
+    const stage = section.querySelector<HTMLElement>(".siblings-stage");
+    const row = section.querySelector<HTMLElement>(".siblings-row");
+    const fan = section.querySelector<HTMLElement>(".siblings-fan");
     const chars = Array.from(section.querySelectorAll<HTMLElement>(".siblings-title .char"));
     const cards = Array.from(section.querySelectorAll<HTMLElement>(".siblings-card"));
 
-    let animTl: gsap.core.Timeline | null = null;
-    let st: ScrollTrigger | null = null;
+    if (!chars.length && !cards.length) return;
 
-    if (prefersReduced) {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       section.dataset.reveal = "live";
-    } else {
-      animTl = gsap.timeline({ paused: true });
+      return;
+    }
 
-      if (chars.length) {
-        animTl.fromTo(
-          chars,
-          { yPercent: 130 },
-          {
-            yPercent: 0,
-            duration: 0.6,
-            stagger: 0.03,
-            ease: "power3.out",
-          },
-          0
-        );
-      }
+    gsap.registerPlugin(ScrollTrigger);
 
-      if (cards.length) {
-        animTl.fromTo(
-          cards,
-          { autoAlpha: 0, yPercent: 25, scale: 0.9 },
+    // Mobile layout (< 744px)
+    if (window.matchMedia("(max-width: 743px)").matches) {
+      const tweens = cards.map((card) => {
+        const tilt = parseFloat(getComputedStyle(card).getPropertyValue("--sib-tilt")) || 0;
+        return gsap.fromTo(
+          card,
+          { autoAlpha: 0, y: 0.22 * card.offsetHeight, scale: 0.82, rotation: tilt },
           {
             autoAlpha: 1,
-            yPercent: 0,
+            y: 0,
             scale: 1,
+            rotation: tilt,
             duration: 0.8,
-            stagger: 0.12,
-            ease: "back.out(1.6)",
-          },
-          0.1
+            ease: "back.out(1.5)",
+            onStart: () => playOnce(SOUNDS.BOX_POP),
+            scrollTrigger: { trigger: card, start: "top 88%", once: true },
+          }
         );
-      }
-
-      st = ScrollTrigger.create({
-        trigger: section,
-        start: "top 75%",
-        once: true,
-        onEnter: () => {
-          section.dataset.reveal = "live";
-          animTl?.play();
-        },
       });
 
-      if (st.progress > 0) {
-        section.dataset.reveal = "live";
-        animTl?.play();
-      }
+      cleanupRef.current = () => {
+        tweens.forEach((tw) => {
+          tw.scrollTrigger?.kill();
+          tw.kill();
+        });
+        gsap.set(cards, { clearProps: "transform,opacity,visibility" });
+      };
+      return;
+    }
 
-      animTl.eventCallback("onComplete", () => {
-        section.dataset.reveal = "live";
-        gsap.set(chars, { clearProps: "transform" });
+    // Desktop fan calculation & timeline
+    const getTilt = (card: HTMLElement) =>
+      parseFloat(getComputedStyle(card).getPropertyValue("--sib-tilt")) || 0;
+
+    const calcOffsets = () => {
+      if (!row || !cards.length) return cards.map(() => 0);
+      const halfW = row.clientWidth / 2;
+      const offsets = cards.map(
+        (_, r) => halfW - (cards[0].offsetLeft + (cards[r].offsetLeft + cards[r].offsetWidth)) / 2
+      );
+      offsets[offsets.length - 1] = 0;
+      return offsets;
+    };
+
+    let offsets = calcOffsets();
+
+    const calcGeometry = () => {
+      const e = Math.abs(cards.length ? getTilt(cards[0]) : 0);
+      const t = Math.abs(offsets[0] ?? 0);
+      const maxL = (row?.clientWidth ?? 0) * 4;
+      const a = e < 0.5 || !t ? maxL : t / Math.tan((e * Math.PI) / 180);
+      return {
+        length: a,
+        origin: (cards.length ? cards[0].offsetTop + cards[0].offsetHeight / 2 : 0) + a,
+      };
+    };
+
+    let geom = calcGeometry();
+
+    const getFanRot = (idx: number) =>
+      geom.length ? (180 * Math.atan((offsets[idx - 1] ?? 0) / geom.length)) / Math.PI : 0;
+
+    let activeG = 0;
+
+    const animateFan = (idx: number, animate?: boolean) => {
+      if (fan) {
+        gsap.to(fan, {
+          rotation: getFanRot(idx),
+          duration: 0.8 * (animate ? 1 : 0),
+          ease: "elastic.out(0.6, 0.3)",
+          overwrite: "auto",
+        });
+      }
+    };
+
+    const popCard = (idx: number) => {
+      const card = cards[idx - 1];
+      if (!card) return;
+      gsap.set(card, { autoAlpha: 1, rotation: getTilt(card) });
+      playOnce(SOUNDS.BOX_POP);
+      const rise = 0.45 * card.offsetWidth;
+      const scale = geom.length ? 1 - rise / geom.length : 1;
+      const o = { rise, scale: Math.max(scale, 0.94) };
+      gsap.fromTo(
+        card,
+        { y: o.rise, scale: o.scale },
+        { y: 0, scale: 1, duration: 0.75, ease: "elastic.out(0.6, 0.3)", overwrite: "auto" }
+      );
+      activeG = idx;
+      animateFan(idx, true);
+    };
+
+    const tl = gsap.timeline({ paused: true });
+    cards.forEach((_, t) => {
+      tl.call(popCard, [t + 1], 0.6 * t);
+    });
+
+    if (chars.length) {
+      tl.fromTo(
+        shuffle(chars),
+        { yPercent: 130 },
+        { yPercent: 0, duration: 0.6, stagger: 0.03, ease: "power3.out" },
+        0.6 * cards.length + 0.18
+      );
+    }
+
+    gsap.set(cards, { autoAlpha: 0 });
+    if (fan) {
+      gsap.set(fan, {
+        transformOrigin: `50% ${Math.round(geom.origin)}px`,
+        rotation: getFanRot(1),
       });
     }
 
+    const st = ScrollTrigger.create({
+      trigger: stage ?? section,
+      start: "top 45%",
+      onEnter: () => {
+        section.dataset.reveal = "live";
+        tl.play();
+      },
+      onRefresh: () => {
+        offsets = calcOffsets();
+        geom = calcGeometry();
+        if (fan) gsap.set(fan, { transformOrigin: `50% ${Math.round(geom.origin)}px` });
+        animateFan(activeG || 1, false);
+      },
+    });
+
+    // Mobile tap support for color pill
+    const abortCtrl = new AbortController();
+    if (!window.matchMedia("(hover: hover)").matches) {
+      const cardsColours = Array.from(
+        section.querySelectorAll<HTMLElement>(".siblings-card[data-colours]")
+      );
+      section.addEventListener(
+        "click",
+        (e) => {
+          const targetCard = (e.target as HTMLElement).closest<HTMLElement>(
+            ".siblings-card[data-colours]"
+          );
+          for (const c of cardsColours) {
+            if (c === targetCard && c.dataset.open === undefined) {
+              c.dataset.open = "";
+            } else {
+              delete c.dataset.open;
+            }
+          }
+        },
+        { signal: abortCtrl.signal }
+      );
+    }
+
     const cleanup = () => {
-      st?.kill();
-      animTl?.kill();
+      abortCtrl.abort();
+      st.kill();
+      tl.kill();
+      gsap.killTweensOf(cards);
+      if (fan) {
+        gsap.killTweensOf(fan);
+        gsap.set(fan, { clearProps: "transform,transformOrigin" });
+      }
+      gsap.set(chars, { clearProps: "transform" });
+      gsap.set(cards, { clearProps: "transform,opacity,visibility" });
       delete section.dataset.reveal;
-      gsap.set([...chars, ...cards], { clearProps: "all" });
     };
 
     cleanupRef.current = cleanup;
@@ -127,13 +245,6 @@ export default function SiblingsSection({ product }: SiblingsSectionProps) {
 
   const styleObj = parseStyleString(product.sibStyle);
 
-  const handleCardHover = (idx: number) => {
-    if (idx !== activeIdx) {
-      setActiveIdx(idx);
-      playOnce(SOUNDS.PICK_HOVER);
-    }
-  };
-
   return (
     <section ref={sectionRef} className="siblings-section" style={styleObj}>
       <div className="siblings-stage">
@@ -145,19 +256,13 @@ export default function SiblingsSection({ product }: SiblingsSectionProps) {
           <div className="siblings-fan">
             {product.siblings.map((sib, idx) => {
               const cardStyleObj = parseStyleString(sib.style);
-              const isRaised = idx === activeIdx;
 
               return (
                 <div
                   key={idx}
                   className="siblings-card"
                   data-colours={sib.dots.length > 0 ? "" : undefined}
-                  style={{
-                    ...cardStyleObj,
-                    "--sib-raised": isRaised ? 1 : 0,
-                  } as React.CSSProperties}
-                  onMouseEnter={() => handleCardHover(idx)}
-                  onClick={() => handleCardHover(idx)}
+                  style={cardStyleObj}
                 >
                   <img
                     className="siblings-face"
